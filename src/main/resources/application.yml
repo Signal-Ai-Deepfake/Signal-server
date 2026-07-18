@@ -1,0 +1,73 @@
+spring:
+  application:
+    name: signal-server
+
+  profiles:
+    active: local
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 50MB
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${MAIL_USERNAME:}   # Gmail 주소
+    password: ${MAIL_PASSWORD:}   # Gmail 앱 비밀번호 (2단계 인증 → 앱 비밀번호 발급)
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+
+verification:
+  code-expiration: 300000    # 인증번호 유효시간 5분 (ms)
+  token-expiration: 600000   # 인증 토큰 유효시간 10분 (ms)
+
+jwt:
+  secret: ${JWT_SECRET:}
+  access-token-expiration: 3600000      # 1시간 (ms)
+  refresh-token-expiration: 1209600000  # 14일 (ms)
+
+server:
+  port: 8080
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+
+  datasource:
+    url: jdbc:mysql://localhost:3306/signal?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:1234}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
