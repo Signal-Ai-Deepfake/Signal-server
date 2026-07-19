@@ -23,3 +23,6 @@ out/
 ### env ###
 .env
 application-secret.yml
+
+### uploads (로컬 파일 저장소) ###
+/uploads/
