@@ -35,7 +35,8 @@ public enum ErrorCode {
     PROTECTION_NOT_READY(HttpStatus.CONFLICT, "이미지 보호 처리가 아직 완료되지 않았습니다."),
 
     // 신고 문서
-    REQUIRED_FIELD_MISSING(HttpStatus.BAD_REQUEST, "필수 항목이 누락되었습니다.");
+    REQUIRED_FIELD_MISSING(HttpStatus.BAD_REQUEST, "필수 항목이 누락되었습니다."),
+    REPORT_ALREADY_FINALIZED(HttpStatus.CONFLICT, "이미 확정된 신고서는 수정할 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;

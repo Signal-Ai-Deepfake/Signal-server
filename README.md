@@ -78,5 +78,5 @@ com.signal
 - [x] `/monitorings` 얼굴 모니터링 (도용 추적) — 현재는 `FaceMonitor` 스텁 구현체 (`StubFaceMonitor`, `@Async`)
 - [x] `/deepfake-detections` 정밀 딥페이크 탐지 — 현재는 `DeepfakeDetector` 스텁 구현체 (`StubDeepfakeDetector`, `@Async`)
 - [x] `/chat` 익명 상담 챗봇 — 현재는 `ChatEngine` 룰 기반 스텁 구현체 (`RuleBasedChatEngine`)
-- [ ] `/reports` 신고 문서 자동 작성
+- [x] `/reports` 신고 문서 자동 작성 — 현재는 `ReportDocumentGenerator` 스텁 구현체 (`StubReportDocumentGenerator`, URL만 생성)
 - [ ] `/agencies` 실제 기관 연결
