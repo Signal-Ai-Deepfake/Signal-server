@@ -12,6 +12,11 @@ spring:
       hibernate:
         format_sql: true
     open-in-view: false
+    defer-datasource-initialization: true   # data.sql이 Hibernate 스키마 생성/검증 이후에 실행되도록 함
+
+  sql:
+    init:
+      mode: always   # MySQL 등 임베디드가 아닌 DB에서도 data.sql 시드가 실행되도록 함
 
   servlet:
     multipart:
