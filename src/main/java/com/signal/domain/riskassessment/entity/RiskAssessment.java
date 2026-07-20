@@ -6,6 +6,7 @@ import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -45,18 +46,18 @@ public class RiskAssessment {
     @Column(nullable = false)
     private boolean faceDetected;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "risk_assessment_factors", joinColumns = @JoinColumn(name = "risk_assessment_id"))
     @OrderColumn(name = "factor_order")
     private List<RiskFactor> factors;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "risk_assessment_recommendations", joinColumns = @JoinColumn(name = "risk_assessment_id"))
     @OrderColumn(name = "recommendation_order")
     @Column(name = "recommendation", length = 500)
     private List<String> recommendations;
 
-    @ElementCollection
+    @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "risk_assessment_faces", joinColumns = @JoinColumn(name = "risk_assessment_id"))
     @OrderColumn(name = "face_order")
     private List<DetectedFace> faces;
