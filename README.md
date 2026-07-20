@@ -73,7 +73,7 @@ com.signal
 - [x] `/auth/verification/*` 인증번호 발송·확인
 - [x] `/auth/password` 비밀번호 재설정
 - [ ] `/users/me/profile-image` 프로필 업로드 (S3 등)
-- [ ] `/risk-assessments` 사진 위험도 사전 진단 (AI 서버 연동)
+- [x] `/risk-assessments` 사진 위험도 사전 진단 (AI 서버 연동) — 현재는 `RiskAnalyzer` 스텁 구현체 (`StubRiskAnalyzer`)
 - [ ] `/protections` 이미지 보호 처리 (노이즈 삽입)
 - [ ] `/monitorings` 얼굴 모니터링 (도용 추적)
 - [ ] `/deepfake-detections` 정밀 딥페이크 탐지
