@@ -39,4 +39,25 @@ class LocalFileStorageTest {
 
         assertThat(url).matches("^/uploads/profile/[0-9a-fA-F-]{36}$");
     }
+
+    @Test
+    void 바이트배열을_저장하면_baseUrl과_확장자를_포함한_URL을_반환한다() {
+        LocalFileStorage storage = new LocalFileStorage(tempDir.toString(), "/uploads");
+        storage.init();
+
+        String url = storage.store(new byte[]{1, 2, 3}, "protected.png", "protections");
+
+        assertThat(url).startsWith("/uploads/protections/").endsWith(".png");
+    }
+
+    @Test
+    void 저장한_파일을_URL로_다시_읽어올_수_있다() {
+        LocalFileStorage storage = new LocalFileStorage(tempDir.toString(), "/uploads");
+        storage.init();
+        String url = storage.store(new byte[]{1, 2, 3}, "protected.png", "protections");
+
+        byte[] loaded = storage.load(url);
+
+        assertThat(loaded).containsExactly(1, 2, 3);
+    }
 }

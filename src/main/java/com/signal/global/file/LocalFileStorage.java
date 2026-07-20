@@ -38,17 +38,53 @@ public class LocalFileStorage implements FileStorage {
     @Override
     public String store(MultipartFile file, String directory) {
         String filename = UUID.randomUUID() + extractExtension(file.getOriginalFilename());
-        Path targetDir = rootDir.resolve(directory).normalize();
+        Path target = resolveTarget(directory, filename);
 
         try {
-            Files.createDirectories(targetDir);
-            Path target = targetDir.resolve(filename);
+            Files.createDirectories(target.getParent());
             file.transferTo(target);
         } catch (IOException e) {
             log.error("파일 저장 실패: {}", filename, e);
             throw new SignalException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
+        return toUrl(directory, filename);
+    }
+
+    @Override
+    public String store(byte[] content, String originalFilename, String directory) {
+        String filename = UUID.randomUUID() + extractExtension(originalFilename);
+        Path target = resolveTarget(directory, filename);
+
+        try {
+            Files.createDirectories(target.getParent());
+            Files.write(target, content);
+        } catch (IOException e) {
+            log.error("파일 저장 실패: {}", filename, e);
+            throw new SignalException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+
+        return toUrl(directory, filename);
+    }
+
+    @Override
+    public byte[] load(String url) {
+        String relativePath = url.startsWith(baseUrl + "/") ? url.substring(baseUrl.length() + 1) : url;
+        Path target = rootDir.resolve(relativePath).normalize();
+
+        try {
+            return Files.readAllBytes(target);
+        } catch (IOException e) {
+            log.error("파일 로드 실패: {}", target, e);
+            throw new SignalException(ErrorCode.NOT_FOUND);
+        }
+    }
+
+    private Path resolveTarget(String directory, String filename) {
+        return rootDir.resolve(directory).normalize().resolve(filename);
+    }
+
+    private String toUrl(String directory, String filename) {
         return baseUrl + "/" + directory + "/" + filename;
     }
 

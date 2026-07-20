@@ -31,6 +31,9 @@ public enum ErrorCode {
     // AI 분석
     FACE_NOT_DETECTED(HttpStatus.UNPROCESSABLE_ENTITY, "얼굴을 검출하지 못했습니다."),
 
+    // 이미지 보호
+    PROTECTION_NOT_READY(HttpStatus.CONFLICT, "이미지 보호 처리가 아직 완료되지 않았습니다."),
+
     // 신고 문서
     REQUIRED_FIELD_MISSING(HttpStatus.BAD_REQUEST, "필수 항목이 누락되었습니다.");
 
