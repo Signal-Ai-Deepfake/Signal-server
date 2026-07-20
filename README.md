@@ -79,4 +79,4 @@ com.signal
 - [x] `/deepfake-detections` 정밀 딥페이크 탐지 — 현재는 `DeepfakeDetector` 스텁 구현체 (`StubDeepfakeDetector`, `@Async`)
 - [x] `/chat` 익명 상담 챗봇 — 현재는 `ChatEngine` 룰 기반 스텁 구현체 (`RuleBasedChatEngine`)
 - [x] `/reports` 신고 문서 자동 작성 — 현재는 `ReportDocumentGenerator` 스텁 구현체 (`StubReportDocumentGenerator`, URL만 생성)
-- [ ] `/agencies` 실제 기관 연결
+- [x] `/agencies` 실제 기관 연결 — 기관 데이터는 `data.sql`로 시드 (디지털성범죄피해자지원센터, 경찰청 사이버수사국 등)

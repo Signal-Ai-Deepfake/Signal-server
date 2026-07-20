@@ -2,12 +2,17 @@ package com.signal.global.exception;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.signal.domain.agency.controller.AgencyController;
+import com.signal.domain.agency.entity.AgencySituationType;
 import com.signal.global.response.ErrorResponse;
+import java.lang.reflect.Method;
 import org.junit.jupiter.api.Test;
+import org.springframework.core.MethodParameter;
 import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 class GlobalExceptionHandlerTest {
 
@@ -20,6 +25,21 @@ class GlobalExceptionHandlerTest {
 
         ResponseEntity<ErrorResponse> response =
                 globalExceptionHandler.handleHttpMessageNotReadableException(exception);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().code()).isEqualTo(ErrorCode.INVALID_INPUT.name());
+    }
+
+    @Test
+    void 쿼리파라미터_타입변환에_실패하면_400_INVALID_INPUT을_반환한다() throws NoSuchMethodException {
+        Method method = AgencyController.class.getMethod("getAgencies", AgencySituationType.class);
+        MethodParameter methodParameter = new MethodParameter(method, 0);
+        MethodArgumentTypeMismatchException exception = new MethodArgumentTypeMismatchException(
+                "FOO", AgencySituationType.class, "situationType", methodParameter,
+                new IllegalArgumentException("No enum constant"));
+
+        ResponseEntity<ErrorResponse> response =
+                globalExceptionHandler.handleMethodArgumentTypeMismatchException(exception);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody().code()).isEqualTo(ErrorCode.INVALID_INPUT.name());
