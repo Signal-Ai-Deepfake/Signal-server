@@ -13,6 +13,8 @@ import com.signal.global.file.FileStorage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @Service
 @RequiredArgsConstructor
@@ -37,9 +39,27 @@ public class ProtectionService {
                 .build();
         Protection saved = protectionRepository.save(protection);
 
-        imageProtector.protect(saved.getId(), saved.getOriginalImageUrl(), level);
+        dispatchAfterCommit(() -> imageProtector.protect(saved.getId(), saved.getOriginalImageUrl(), level));
 
         return saved;
+    }
+
+    /**
+     * 트랜잭션 커밋 전에 비동기 처리가 시작되면, 처리 스레드가 아직 커밋되지 않은
+     * Protection을 조회하지 못해 결과가 조용히 버려질 수 있다. 커밋 완료 후에 시작되도록 보장한다.
+     * 트랜잭션이 없는 컨텍스트(단위 테스트 등)에서는 즉시 실행한다.
+     */
+    private void dispatchAfterCommit(Runnable task) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            task.run();
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                task.run();
+            }
+        });
     }
 
     public Protection getProtection(Long userId, Long protectionId) {
