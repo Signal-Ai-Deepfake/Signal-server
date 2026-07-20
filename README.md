@@ -76,7 +76,7 @@ com.signal
 - [x] `/risk-assessments` 사진 위험도 사전 진단 (AI 서버 연동) — 현재는 `RiskAnalyzer` 스텁 구현체 (`StubRiskAnalyzer`)
 - [x] `/protections` 이미지 보호 처리 (노이즈 삽입) — 현재는 `ImageProtector` 스텁 구현체 (`StubImageProtector`, `@Async`)
 - [x] `/monitorings` 얼굴 모니터링 (도용 추적) — 현재는 `FaceMonitor` 스텁 구현체 (`StubFaceMonitor`, `@Async`)
-- [ ] `/deepfake-detections` 정밀 딥페이크 탐지
+- [x] `/deepfake-detections` 정밀 딥페이크 탐지 — 현재는 `DeepfakeDetector` 스텁 구현체 (`StubDeepfakeDetector`, `@Async`)
 - [ ] `/chat` 익명 상담 챗봇
 - [ ] `/reports` 신고 문서 자동 작성
 - [ ] `/agencies` 실제 기관 연결

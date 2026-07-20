@@ -15,8 +15,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 10MB
-      max-request-size: 50MB
+      max-file-size: 100MB      # 딥페이크 탐지의 영상 업로드를 지원하기 위해 상향 (이미지 전용 API는 서비스 레벨에서 10MB로 별도 제한)
+      max-request-size: 110MB
 
   mail:
     host: smtp.gmail.com
@@ -50,6 +50,9 @@ protection:
 
 monitoring:
   processing-delay-ms: 3000   # 얼굴 모니터링 초기 탐지 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
+
+deepfake-detection:
+  processing-delay-ms: 3000   # 딥페이크 탐지 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
 
 server:
   port: 8080
