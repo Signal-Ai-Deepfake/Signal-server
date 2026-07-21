@@ -24,10 +24,10 @@ spring:
       max-request-size: 110MB
 
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME:}   # Gmail 주소
-    password: ${MAIL_PASSWORD:}   # Gmail 앱 비밀번호 (2단계 인증 → 앱 비밀번호 발급)
+    host: ${SMTP_HOST:smtp.gmail.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USER:}   # Gmail 주소
+    password: ${SMTP_PASS:}   # Gmail 앱 비밀번호 (2단계 인증 → 앱 비밀번호 발급)
     properties:
       mail:
         smtp:
