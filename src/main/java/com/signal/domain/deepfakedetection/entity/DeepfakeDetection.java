@@ -16,6 +16,7 @@ import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -31,8 +32,9 @@ public class DeepfakeDetection {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private Long userId;
+
+    private String anonymousId;
 
     @Column(nullable = false)
     private String fileUrl;
@@ -59,16 +61,20 @@ public class DeepfakeDetection {
     private LocalDateTime createdAt;
 
     @Builder
-    public DeepfakeDetection(Long userId, String fileUrl) {
+    public DeepfakeDetection(Long userId, String anonymousId, String fileUrl) {
         this.userId = userId;
+        this.anonymousId = anonymousId;
         this.fileUrl = fileUrl;
         this.status = DeepfakeDetectionStatus.PROCESSING;
         this.evidences = new ArrayList<>();
         this.createdAt = LocalDateTime.now();
     }
 
-    public boolean isOwnedBy(Long userId) {
-        return this.userId.equals(userId);
+    public boolean isOwnedBy(Long userId, String anonymousId) {
+        if (this.userId != null) {
+            return this.userId.equals(userId);
+        }
+        return Objects.equals(this.anonymousId, anonymousId);
     }
 
     public void complete(Verdict verdict, double confidence, int riskScore,
