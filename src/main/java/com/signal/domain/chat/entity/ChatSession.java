@@ -47,6 +47,21 @@ public class ChatSession {
     @Column(nullable = false)
     private boolean lastCrisisDetected;
 
+    @Column(nullable = false)
+    private boolean everCrisisDetected;
+
+    @Column(nullable = false)
+    private boolean evidenceUrlMentioned;
+
+    @Column(nullable = false)
+    private boolean agenciesRecommended;
+
+    @Column(nullable = false)
+    private boolean awaitingEndConfirmation;
+
+    @Column(nullable = false)
+    private boolean sessionEnded;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -78,8 +93,33 @@ public class ChatSession {
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void recordEngineResult(SituationType situationType, boolean crisisDetected) {
+    public void recordEngineResult(SituationType situationType, boolean crisisDetected, boolean agenciesGiven) {
         this.lastSituationType = situationType;
         this.lastCrisisDetected = crisisDetected;
+        if (crisisDetected) {
+            this.everCrisisDetected = true;
+        }
+        if (agenciesGiven) {
+            this.agenciesRecommended = true;
+        }
+    }
+
+    public void markEvidenceUrlMentioned() {
+        this.evidenceUrlMentioned = true;
+    }
+
+    public void markAwaitingEndConfirmation() {
+        this.awaitingEndConfirmation = true;
+    }
+
+    public void resolveEndConfirmation(boolean confirmed) {
+        this.awaitingEndConfirmation = false;
+        if (confirmed) {
+            this.sessionEnded = true;
+        }
+    }
+
+    public boolean isEmotionallyStabilized() {
+        return !this.everCrisisDetected || !this.lastCrisisDetected;
     }
 }

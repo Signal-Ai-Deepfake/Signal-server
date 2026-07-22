@@ -11,7 +11,8 @@ public record SendMessageResponse(
         SituationType situationType,
         List<String> suggestedActions,
         boolean crisisDetected,
-        List<String> recommendedAgencies
+        List<String> recommendedAgencies,
+        boolean sessionEnded
 ) {
 
     public static SendMessageResponse from(SendMessageResult result) {
@@ -22,6 +23,7 @@ public record SendMessageResponse(
                 engineResponse.situationType(),
                 engineResponse.suggestedActions(),
                 engineResponse.crisisDetected(),
-                engineResponse.recommendedAgencies());
+                engineResponse.recommendedAgencies(),
+                result.sessionEnded());
     }
 }

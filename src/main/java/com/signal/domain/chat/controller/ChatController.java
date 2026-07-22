@@ -5,6 +5,7 @@ import com.signal.domain.chat.dto.request.SendMessageRequest;
 import com.signal.domain.chat.dto.response.ChatMessagesResponse;
 import com.signal.domain.chat.dto.response.ChatSessionCreateResponse;
 import com.signal.domain.chat.dto.response.ChatSessionResponse;
+import com.signal.domain.chat.dto.response.ChatSummaryResponse;
 import com.signal.domain.chat.dto.response.SendMessageResponse;
 import com.signal.domain.chat.entity.ChatMessage;
 import com.signal.domain.chat.entity.ChatSession;
@@ -57,6 +58,15 @@ public class ChatController {
             @PathVariable String sessionId) {
         ChatSession session = chatService.getSession(sessionId, userId, anonymousId);
         return ResponseEntity.ok(ChatSessionResponse.from(session));
+    }
+
+    @GetMapping("/sessions/{sessionId}/summary")
+    public ResponseEntity<ChatSummaryResponse> getSummary(
+            @AuthenticationPrincipal Long userId,
+            @RequestHeader(value = "X-Anonymous-Id", required = false) String anonymousId,
+            @PathVariable String sessionId) {
+        ChatSummaryResponse summary = chatService.getSummary(sessionId, userId, anonymousId);
+        return ResponseEntity.ok(summary);
     }
 
     @DeleteMapping("/sessions/{sessionId}")
