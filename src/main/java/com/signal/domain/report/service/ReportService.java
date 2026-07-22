@@ -89,6 +89,12 @@ public class ReportService {
     }
 
     @Transactional
+    public void deleteReport(Long userId, Long reportId) {
+        Report report = getOwnedReport(userId, reportId);
+        reportRepository.delete(report);
+    }
+
+    @Transactional
     public ReportEvidence uploadEvidence(Long userId, MultipartFile file) {
         validateEvidenceFile(file);
 

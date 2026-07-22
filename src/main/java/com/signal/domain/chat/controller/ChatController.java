@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -47,6 +48,24 @@ public class ChatController {
                 .map(ChatSessionResponse::from)
                 .toList();
         return ResponseEntity.ok(sessions);
+    }
+
+    @GetMapping("/sessions/{sessionId}")
+    public ResponseEntity<ChatSessionResponse> getSession(
+            @AuthenticationPrincipal Long userId,
+            @RequestHeader(value = "X-Anonymous-Id", required = false) String anonymousId,
+            @PathVariable String sessionId) {
+        ChatSession session = chatService.getSession(sessionId, userId, anonymousId);
+        return ResponseEntity.ok(ChatSessionResponse.from(session));
+    }
+
+    @DeleteMapping("/sessions/{sessionId}")
+    public ResponseEntity<Void> deleteSession(
+            @AuthenticationPrincipal Long userId,
+            @RequestHeader(value = "X-Anonymous-Id", required = false) String anonymousId,
+            @PathVariable String sessionId) {
+        chatService.deleteSession(sessionId, userId, anonymousId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/sessions/{sessionId}/messages")

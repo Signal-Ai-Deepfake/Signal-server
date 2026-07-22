@@ -18,7 +18,6 @@ import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class ChatService {
 
     private static final long ANONYMOUS_CHAT_SESSION_LIMIT = 5;
@@ -45,6 +44,7 @@ public class ChatService {
     @Transactional
     public SendMessageResult sendMessage(String sessionId, Long userId, String anonymousId, String content) {
         ChatSession session = getOwnedSession(sessionId, userId, anonymousId);
+        session.recordUserMessage(content);
 
         chatMessageRepository.save(ChatMessage.builder()
                 .chatSessionId(session.getId())
@@ -53,6 +53,7 @@ public class ChatService {
                 .build());
 
         ChatEngineResponse engineResponse = chatEngine.respond(content);
+        session.recordEngineResult(engineResponse.situationType(), engineResponse.crisisDetected());
 
         ChatMessage botMessage = chatMessageRepository.save(ChatMessage.builder()
                 .chatSessionId(session.getId())
@@ -70,6 +71,17 @@ public class ChatService {
 
     public List<ChatSession> getMySessions(Long userId) {
         return chatSessionRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    public ChatSession getSession(String sessionId, Long userId, String anonymousId) {
+        return getOwnedSession(sessionId, userId, anonymousId);
+    }
+
+    @Transactional
+    public void deleteSession(String sessionId, Long userId, String anonymousId) {
+        ChatSession session = getOwnedSession(sessionId, userId, anonymousId);
+        chatMessageRepository.deleteByChatSessionId(session.getId());
+        chatSessionRepository.delete(session);
     }
 
     private ChatSession getOwnedSession(String sessionId, Long userId, String anonymousId) {
