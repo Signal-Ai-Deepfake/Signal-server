@@ -7,6 +7,7 @@ import com.signal.domain.riskassessment.repository.RiskAssessmentRepository;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
 import com.signal.global.file.FileStorage;
+import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -66,6 +67,10 @@ public class RiskAssessmentService {
         }
 
         return riskAssessment;
+    }
+
+    public List<RiskAssessment> getMyAssessments(Long userId) {
+        return riskAssessmentRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
     private void validateAnonymousUsage(String anonymousId) {

@@ -3,6 +3,7 @@ package com.signal.domain.riskassessment.controller;
 import com.signal.domain.riskassessment.dto.response.RiskAssessmentResponse;
 import com.signal.domain.riskassessment.entity.RiskAssessment;
 import com.signal.domain.riskassessment.service.RiskAssessmentService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -31,6 +32,14 @@ public class RiskAssessmentController {
             @RequestPart("image") MultipartFile image) {
         RiskAssessment riskAssessment = riskAssessmentService.createAssessment(userId, anonymousId, image);
         return ResponseEntity.status(HttpStatus.CREATED).body(RiskAssessmentResponse.from(riskAssessment));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<RiskAssessmentResponse>> getMyAssessments(@AuthenticationPrincipal Long userId) {
+        List<RiskAssessmentResponse> assessments = riskAssessmentService.getMyAssessments(userId).stream()
+                .map(RiskAssessmentResponse::from)
+                .toList();
+        return ResponseEntity.ok(assessments);
     }
 
     @GetMapping("/{assessmentId}")
