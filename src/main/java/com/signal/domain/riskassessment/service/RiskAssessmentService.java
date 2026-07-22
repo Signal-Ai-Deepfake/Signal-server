@@ -11,6 +11,7 @@ import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -21,14 +22,18 @@ public class RiskAssessmentService {
     private static final long MAX_IMAGE_SIZE = 10L * 1024 * 1024;
     private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of("image/jpeg", "image/png");
     private static final String IMAGE_DIRECTORY = "risk-assessments";
+    private static final long ANONYMOUS_ASSESSMENT_LIMIT = 5;
 
     private final RiskAssessmentRepository riskAssessmentRepository;
     private final RiskAnalyzer riskAnalyzer;
     private final FileStorage fileStorage;
 
     @Transactional
-    public RiskAssessment createAssessment(Long userId, MultipartFile image) {
+    public RiskAssessment createAssessment(Long userId, String anonymousId, MultipartFile image) {
         validateImage(image);
+        if (userId == null) {
+            validateAnonymousUsage(anonymousId);
+        }
 
         RiskAnalysisResult result = riskAnalyzer.analyze(image);
         if (!result.faceDetected()) {
@@ -39,6 +44,7 @@ public class RiskAssessmentService {
 
         RiskAssessment riskAssessment = RiskAssessment.builder()
                 .userId(userId)
+                .anonymousId(userId == null ? anonymousId : null)
                 .imageUrl(imageUrl)
                 .overallRiskLevel(result.overallRiskLevel())
                 .overallScore(result.overallScore())
@@ -51,15 +57,24 @@ public class RiskAssessmentService {
         return riskAssessmentRepository.save(riskAssessment);
     }
 
-    public RiskAssessment getAssessment(Long userId, Long assessmentId) {
+    public RiskAssessment getAssessment(Long userId, String anonymousId, Long assessmentId) {
         RiskAssessment riskAssessment = riskAssessmentRepository.findById(assessmentId)
                 .orElseThrow(() -> new SignalException(ErrorCode.NOT_FOUND));
 
-        if (!riskAssessment.isOwnedBy(userId)) {
+        if (!riskAssessment.isOwnedBy(userId, anonymousId)) {
             throw new SignalException(ErrorCode.FORBIDDEN);
         }
 
         return riskAssessment;
+    }
+
+    private void validateAnonymousUsage(String anonymousId) {
+        if (!StringUtils.hasText(anonymousId)) {
+            throw new SignalException(ErrorCode.ANONYMOUS_ID_REQUIRED);
+        }
+        if (riskAssessmentRepository.countByAnonymousId(anonymousId) >= ANONYMOUS_ASSESSMENT_LIMIT) {
+            throw new SignalException(ErrorCode.ANONYMOUS_RISK_ASSESSMENT_LIMIT_EXCEEDED);
+        }
     }
 
     private void validateImage(MultipartFile image) {

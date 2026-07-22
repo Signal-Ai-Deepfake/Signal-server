@@ -2,12 +2,16 @@ package com.signal.domain.report.controller;
 
 import com.signal.domain.report.dto.request.CreateReportRequest;
 import com.signal.domain.report.dto.request.UpdateReportRequest;
+import com.signal.domain.report.dto.response.ReportEvidenceResponse;
 import com.signal.domain.report.dto.response.ReportResponse;
 import com.signal.domain.report.dto.response.ReportStatusResponse;
 import com.signal.domain.report.entity.Report;
+import com.signal.domain.report.entity.ReportEvidence;
 import com.signal.domain.report.service.ReportService;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -16,7 +20,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/reports")
@@ -31,6 +37,22 @@ public class ReportController {
             @RequestBody CreateReportRequest request) {
         Report report = reportService.createReport(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ReportStatusResponse.from(report));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<ReportResponse>> getMyReports(@AuthenticationPrincipal Long userId) {
+        List<ReportResponse> reports = reportService.getMyReports(userId).stream()
+                .map(ReportResponse::from)
+                .toList();
+        return ResponseEntity.ok(reports);
+    }
+
+    @PostMapping(value = "/evidence", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ReportEvidenceResponse> uploadEvidence(
+            @AuthenticationPrincipal Long userId,
+            @RequestPart("file") MultipartFile file) {
+        ReportEvidence evidence = reportService.uploadEvidence(userId, file);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ReportEvidenceResponse.from(evidence));
     }
 
     @GetMapping("/{reportId}")

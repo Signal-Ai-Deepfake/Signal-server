@@ -14,27 +14,37 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ChatService {
 
+    private static final long ANONYMOUS_CHAT_SESSION_LIMIT = 5;
+
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ChatEngine chatEngine;
 
     @Transactional
-    public ChatSession createSession() {
+    public ChatSession createSession(Long userId, String anonymousId, boolean saveConsent) {
+        if (userId == null) {
+            validateAnonymousUsage(anonymousId);
+        }
+
         ChatSession session = ChatSession.builder()
                 .sessionId(UUID.randomUUID().toString())
+                .userId(userId)
+                .anonymousId(userId == null ? anonymousId : null)
+                .saveConsent(saveConsent)
                 .build();
         return chatSessionRepository.save(session);
     }
 
     @Transactional
-    public SendMessageResult sendMessage(String sessionId, String content) {
-        ChatSession session = getSession(sessionId);
+    public SendMessageResult sendMessage(String sessionId, Long userId, String anonymousId, String content) {
+        ChatSession session = getOwnedSession(sessionId, userId, anonymousId);
 
         chatMessageRepository.save(ChatMessage.builder()
                 .chatSessionId(session.getId())
@@ -53,13 +63,32 @@ public class ChatService {
         return new SendMessageResult(botMessage, engineResponse);
     }
 
-    public List<ChatMessage> getMessages(String sessionId) {
-        ChatSession session = getSession(sessionId);
+    public List<ChatMessage> getMessages(String sessionId, Long userId, String anonymousId) {
+        ChatSession session = getOwnedSession(sessionId, userId, anonymousId);
         return chatMessageRepository.findByChatSessionIdOrderByCreatedAtAsc(session.getId());
     }
 
-    private ChatSession getSession(String sessionId) {
-        return chatSessionRepository.findBySessionId(sessionId)
+    public List<ChatSession> getMySessions(Long userId) {
+        return chatSessionRepository.findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    private ChatSession getOwnedSession(String sessionId, Long userId, String anonymousId) {
+        ChatSession session = chatSessionRepository.findBySessionId(sessionId)
                 .orElseThrow(() -> new SignalException(ErrorCode.NOT_FOUND));
+
+        if (!session.isOwnedBy(userId, anonymousId)) {
+            throw new SignalException(ErrorCode.FORBIDDEN);
+        }
+
+        return session;
+    }
+
+    private void validateAnonymousUsage(String anonymousId) {
+        if (!StringUtils.hasText(anonymousId)) {
+            throw new SignalException(ErrorCode.ANONYMOUS_ID_REQUIRED);
+        }
+        if (chatSessionRepository.countByAnonymousId(anonymousId) >= ANONYMOUS_CHAT_SESSION_LIMIT) {
+            throw new SignalException(ErrorCode.ANONYMOUS_CHAT_LIMIT_EXCEEDED);
+        }
     }
 }

@@ -11,6 +11,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,16 +27,18 @@ public class RiskAssessmentController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<RiskAssessmentResponse> createAssessment(
             @AuthenticationPrincipal Long userId,
+            @RequestHeader(value = "X-Anonymous-Id", required = false) String anonymousId,
             @RequestPart("image") MultipartFile image) {
-        RiskAssessment riskAssessment = riskAssessmentService.createAssessment(userId, image);
+        RiskAssessment riskAssessment = riskAssessmentService.createAssessment(userId, anonymousId, image);
         return ResponseEntity.status(HttpStatus.CREATED).body(RiskAssessmentResponse.from(riskAssessment));
     }
 
     @GetMapping("/{assessmentId}")
     public ResponseEntity<RiskAssessmentResponse> getAssessment(
             @AuthenticationPrincipal Long userId,
+            @RequestHeader(value = "X-Anonymous-Id", required = false) String anonymousId,
             @PathVariable Long assessmentId) {
-        RiskAssessment riskAssessment = riskAssessmentService.getAssessment(userId, assessmentId);
+        RiskAssessment riskAssessment = riskAssessmentService.getAssessment(userId, anonymousId, assessmentId);
         return ResponseEntity.ok(RiskAssessmentResponse.from(riskAssessment));
     }
 }

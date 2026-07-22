@@ -1,5 +1,6 @@
 package com.signal.domain.user.service;
 
+import com.signal.domain.user.dto.request.UpdateUserRequest;
 import com.signal.domain.user.entity.User;
 import com.signal.domain.user.repository.UserRepository;
 import com.signal.global.exception.ErrorCode;
@@ -22,6 +23,28 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FileStorage fileStorage;
+
+    public User getMyProfile(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new SignalException(ErrorCode.NOT_FOUND));
+    }
+
+    @Transactional
+    public User updateProfile(Long userId, UpdateUserRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new SignalException(ErrorCode.NOT_FOUND));
+
+        user.updateProfile(request.name(), request.age(), request.gender());
+        return user;
+    }
+
+    @Transactional
+    public void deleteAccount(Long userId) {
+        if (!userRepository.existsById(userId)) {
+            throw new SignalException(ErrorCode.NOT_FOUND);
+        }
+        userRepository.deleteById(userId);
+    }
 
     @Transactional
     public String updateProfileImage(Long userId, MultipartFile image) {

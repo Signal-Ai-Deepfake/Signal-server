@@ -42,6 +42,9 @@ public class User {
 
     private String profileImageUrl;
 
+    @Column(nullable = false)
+    private int tokenVersion;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -52,7 +55,12 @@ public class User {
         this.name = name;
         this.age = age;
         this.gender = gender;
+        this.tokenVersion = 0;
         this.createdAt = LocalDateTime.now();
+    }
+
+    public void invalidateTokens() {
+        this.tokenVersion++;
     }
 
     public void updatePassword(String encodedPassword) {
@@ -61,6 +69,18 @@ public class User {
 
     public void updateProfileImage(String url) {
         this.profileImageUrl = url;
+    }
+
+    public void updateProfile(String name, Integer age, Gender gender) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (age != null) {
+            this.age = age;
+        }
+        if (gender != null) {
+            this.gender = gender;
+        }
     }
 
     public enum Gender {

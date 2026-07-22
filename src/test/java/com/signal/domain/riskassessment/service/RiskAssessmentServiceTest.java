@@ -64,7 +64,7 @@ class RiskAssessmentServiceTest {
         when(fileStorage.store(any(), anyString())).thenReturn("/uploads/risk-assessments/generated.png");
         when(riskAssessmentRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        RiskAssessment saved = riskAssessmentService.createAssessment(1L, image);
+        RiskAssessment saved = riskAssessmentService.createAssessment(1L, null, image);
 
         assertThat(saved.getUserId()).isEqualTo(1L);
         assertThat(saved.getOverallRiskLevel()).isEqualTo(RiskLevel.HIGH);
@@ -80,7 +80,7 @@ class RiskAssessmentServiceTest {
         MockMultipartFile image = new MockMultipartFile("image", "photo.png", "image/png", new byte[]{1, 2, 3});
         when(riskAnalyzer.analyze(image)).thenReturn(RiskAnalysisResult.faceNotDetected());
 
-        assertThatThrownBy(() -> riskAssessmentService.createAssessment(1L, image))
+        assertThatThrownBy(() -> riskAssessmentService.createAssessment(1L, null, image))
                 .isInstanceOf(SignalException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FACE_NOT_DETECTED);
     }
@@ -89,7 +89,7 @@ class RiskAssessmentServiceTest {
     void 지원하지_않는_파일_형식이면_예외가_발생한다() {
         MockMultipartFile file = new MockMultipartFile("image", "malware.exe", "application/octet-stream", new byte[]{1});
 
-        assertThatThrownBy(() -> riskAssessmentService.createAssessment(1L, file))
+        assertThatThrownBy(() -> riskAssessmentService.createAssessment(1L, null, file))
                 .isInstanceOf(SignalException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.UNSUPPORTED_MEDIA_TYPE);
     }
@@ -99,7 +99,7 @@ class RiskAssessmentServiceTest {
         byte[] tooLarge = new byte[(int) (10L * 1024 * 1024) + 1];
         MockMultipartFile file = new MockMultipartFile("image", "big.png", "image/png", tooLarge);
 
-        assertThatThrownBy(() -> riskAssessmentService.createAssessment(1L, file))
+        assertThatThrownBy(() -> riskAssessmentService.createAssessment(1L, null, file))
                 .isInstanceOf(SignalException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FILE_TOO_LARGE);
     }
@@ -118,7 +118,7 @@ class RiskAssessmentServiceTest {
                 .build();
         when(riskAssessmentRepository.findById(1L)).thenReturn(Optional.of(riskAssessment));
 
-        RiskAssessment result = riskAssessmentService.getAssessment(1L, 1L);
+        RiskAssessment result = riskAssessmentService.getAssessment(1L, null, 1L);
 
         assertThat(result).isEqualTo(riskAssessment);
     }
@@ -127,7 +127,7 @@ class RiskAssessmentServiceTest {
     void 존재하지_않는_진단이면_예외가_발생한다() {
         when(riskAssessmentRepository.findById(1L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> riskAssessmentService.getAssessment(1L, 1L))
+        assertThatThrownBy(() -> riskAssessmentService.getAssessment(1L, null, 1L))
                 .isInstanceOf(SignalException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
     }
@@ -146,7 +146,7 @@ class RiskAssessmentServiceTest {
                 .build();
         when(riskAssessmentRepository.findById(1L)).thenReturn(Optional.of(riskAssessment));
 
-        assertThatThrownBy(() -> riskAssessmentService.getAssessment(1L, 1L))
+        assertThatThrownBy(() -> riskAssessmentService.getAssessment(1L, null, 1L))
                 .isInstanceOf(SignalException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }

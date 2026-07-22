@@ -11,9 +11,11 @@ import com.signal.domain.report.entity.Report;
 import com.signal.domain.report.entity.ReportStatus;
 import com.signal.domain.report.entity.TimelineEvent;
 import com.signal.domain.report.generator.ReportDocumentGenerator;
+import com.signal.domain.report.repository.ReportEvidenceRepository;
 import com.signal.domain.report.repository.ReportRepository;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
+import com.signal.global.file.FileStorage;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -30,13 +32,20 @@ class ReportServiceTest {
     private ReportRepository reportRepository;
 
     @Mock
+    private ReportEvidenceRepository reportEvidenceRepository;
+
+    @Mock
     private ReportDocumentGenerator reportDocumentGenerator;
+
+    @Mock
+    private FileStorage fileStorage;
 
     private ReportService reportService;
 
     @BeforeEach
     void setUp() {
-        reportService = new ReportService(reportRepository, reportDocumentGenerator);
+        reportService = new ReportService(
+                reportRepository, reportEvidenceRepository, reportDocumentGenerator, fileStorage);
     }
 
     private CreateReportRequest sampleRequest() {

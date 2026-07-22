@@ -8,11 +8,14 @@ import com.signal.domain.auth.dto.request.VerifyCodeRequest;
 import com.signal.domain.auth.dto.response.TokenResponse;
 import com.signal.domain.auth.service.AuthService;
 import com.signal.domain.auth.service.VerificationService;
+import com.signal.global.exception.ErrorCode;
+import com.signal.global.exception.SignalException;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -66,5 +69,15 @@ public class AuthController {
     @PatchMapping("/reissue")
     public ResponseEntity<TokenResponse> reissue(@RequestBody Map<String, String> request) {
         return ResponseEntity.ok(authService.reissue(request.get("refreshToken")));
+    }
+
+    /** 로그아웃 — 서버에 발급된 리프레시 토큰을 즉시 무효화한다 (액세스 토큰은 자연 만료까지 유효). */
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(@AuthenticationPrincipal Long userId) {
+        if (userId == null) {
+            throw new SignalException(ErrorCode.UNAUTHORIZED);
+        }
+        authService.logout(userId);
+        return ResponseEntity.noContent().build();
     }
 }

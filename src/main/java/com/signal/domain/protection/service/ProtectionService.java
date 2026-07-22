@@ -27,7 +27,7 @@ public class ProtectionService {
 
     @Transactional
     public Protection createProtection(Long userId, Long assessmentId, ProtectionLevel protectionLevel) {
-        RiskAssessment riskAssessment = riskAssessmentService.getAssessment(userId, assessmentId);
+        RiskAssessment riskAssessment = riskAssessmentService.getAssessment(userId, null, assessmentId);
         ProtectionLevel level = protectionLevel != null ? protectionLevel : ProtectionLevel.NORMAL;
 
         Protection protection = Protection.builder()

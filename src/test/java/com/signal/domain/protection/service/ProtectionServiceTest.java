@@ -64,7 +64,7 @@ class ProtectionServiceTest {
 
     @Test
     void 보호_요청을_생성하면_PROCESSING_상태로_저장되고_비동기_처리가_시작된다() {
-        when(riskAssessmentService.getAssessment(1L, 10L)).thenReturn(sampleRiskAssessment());
+        when(riskAssessmentService.getAssessment(1L, null, 10L)).thenReturn(sampleRiskAssessment());
         when(protectionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         Protection protection = protectionService.createProtection(1L, 10L, ProtectionLevel.STRONG);
@@ -77,7 +77,7 @@ class ProtectionServiceTest {
 
     @Test
     void 보호수준을_지정하지_않으면_기본값_NORMAL이_적용된다() {
-        when(riskAssessmentService.getAssessment(1L, 10L)).thenReturn(sampleRiskAssessment());
+        when(riskAssessmentService.getAssessment(1L, null, 10L)).thenReturn(sampleRiskAssessment());
         when(protectionRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         Protection protection = protectionService.createProtection(1L, 10L, null);
@@ -88,7 +88,7 @@ class ProtectionServiceTest {
 
     @Test
     void 존재하지_않거나_소유자가_아닌_진단이면_예외가_발생하고_처리가_시작되지_않는다() {
-        when(riskAssessmentService.getAssessment(1L, 10L)).thenThrow(new SignalException(ErrorCode.FORBIDDEN));
+        when(riskAssessmentService.getAssessment(1L, null, 10L)).thenThrow(new SignalException(ErrorCode.FORBIDDEN));
 
         assertThatThrownBy(() -> protectionService.createProtection(1L, 10L, null))
                 .isInstanceOf(SignalException.class)

@@ -37,7 +37,7 @@ public class AuthService {
             throw new SignalException(ErrorCode.LOGIN_FAILED);
         }
 
-        return issueTokens(user.getId());
+        return issueTokens(user);
     }
 
     @Transactional
@@ -80,13 +80,28 @@ public class AuthService {
         if (!jwtProvider.validateToken(refreshToken) || !jwtProvider.isRefreshToken(refreshToken)) {
             throw new SignalException(ErrorCode.INVALID_REFRESH_TOKEN);
         }
-        return issueTokens(jwtProvider.getUserId(refreshToken));
+
+        User user = userRepository.findById(jwtProvider.getUserId(refreshToken))
+                .orElseThrow(() -> new SignalException(ErrorCode.INVALID_REFRESH_TOKEN));
+
+        if (jwtProvider.getTokenVersion(refreshToken) != user.getTokenVersion()) {
+            throw new SignalException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        return issueTokens(user);
     }
 
-    private TokenResponse issueTokens(Long userId) {
+    @Transactional
+    public void logout(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new SignalException(ErrorCode.NOT_FOUND));
+        user.invalidateTokens();
+    }
+
+    private TokenResponse issueTokens(User user) {
         return new TokenResponse(
-                jwtProvider.createAccessToken(userId),
-                jwtProvider.createRefreshToken(userId),
+                jwtProvider.createAccessToken(user.getId(), user.getTokenVersion()),
+                jwtProvider.createRefreshToken(user.getId(), user.getTokenVersion()),
                 accessTokenExpiration / 1000
         );
     }

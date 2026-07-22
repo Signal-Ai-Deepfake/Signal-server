@@ -15,6 +15,7 @@ import jakarta.persistence.OrderColumn;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -30,8 +31,9 @@ public class RiskAssessment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
     private Long userId;
+
+    private String anonymousId;
 
     @Column(nullable = false)
     private String imageUrl;
@@ -66,10 +68,11 @@ public class RiskAssessment {
     private LocalDateTime createdAt;
 
     @Builder
-    public RiskAssessment(Long userId, String imageUrl, RiskLevel overallRiskLevel, int overallScore,
-                           boolean faceDetected, List<RiskFactor> factors, List<String> recommendations,
-                           List<DetectedFace> faces) {
+    public RiskAssessment(Long userId, String anonymousId, String imageUrl, RiskLevel overallRiskLevel,
+                           int overallScore, boolean faceDetected, List<RiskFactor> factors,
+                           List<String> recommendations, List<DetectedFace> faces) {
         this.userId = userId;
+        this.anonymousId = anonymousId;
         this.imageUrl = imageUrl;
         this.overallRiskLevel = overallRiskLevel;
         this.overallScore = overallScore;
@@ -80,7 +83,10 @@ public class RiskAssessment {
         this.createdAt = LocalDateTime.now();
     }
 
-    public boolean isOwnedBy(Long userId) {
-        return this.userId.equals(userId);
+    public boolean isOwnedBy(Long userId, String anonymousId) {
+        if (this.userId != null) {
+            return this.userId.equals(userId);
+        }
+        return Objects.equals(this.anonymousId, anonymousId);
     }
 }

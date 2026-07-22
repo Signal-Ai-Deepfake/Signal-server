@@ -9,10 +9,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class RuleBasedChatEngine implements ChatEngine {
 
-    private static final List<String> ABUSE_KEYWORDS = List.of("도용", "유포");
+    private static final List<String> ABUSE_KEYWORDS = List.of(
+            "도용", "유포", "딥페이크", "합성", "몸캠", "협박", "동의 없이", "불법 촬영", "합성사진");
 
     private static final List<String> CRISIS_KEYWORDS = List.of(
-            "자살", "죽고 싶", "죽고싶", "자해", "극단적 선택", "삶을 포기");
+            "자살", "죽고 싶", "죽고싶", "자해", "극단적 선택", "삶을 포기",
+            "살기 싫", "사라지고 싶", "포기하고 싶");
 
     private static final List<String> CRISIS_AGENCIES = List.of(
             "자살예방상담전화 (국번없이 1393)",
