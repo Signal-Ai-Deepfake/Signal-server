@@ -17,51 +17,6 @@ Signal은 사용자가 SNS에 사진을 올리기 전 위험 요소를 진단하
 | 탐지 | 얼굴 모니터링(도용 추적), 정밀 딥페이크 탐지 |
 | 대응 | 익명 상담 챗봇, 신고 문서 자동 작성, 실제 기관 연결 |
 
-## 실행
-
-```bash
-./gradlew bootRun
-```
-
-- 기본 프로필 `local`: MySQL `localhost:3306/signal` (기본 계정 root/1234, `DB_USERNAME`/`DB_PASSWORD` 환경변수로 변경 가능)
-- 운영 프로필 `prod`: 환경변수 `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JWT_SECRET` 필요
-- 배포 관련 상세 내용은 [DEPLOY.md](./DEPLOY.md) 참고
-
-### DB 준비
-
-```sql
-CREATE DATABASE signal DEFAULT CHARACTER SET utf8mb4;
-```
-
-> Gradle Wrapper가 없다면 IntelliJ에서 프로젝트 열면 자동 생성되거나, `gradle wrapper` 실행.
-
-### Gmail 인증번호 발송 설정
-
-1. Google 계정 → 보안 → **2단계 인증** 활성화
-2. [앱 비밀번호](https://myaccount.google.com/apppasswords) 발급 (16자리)
-3. 환경변수 설정 후 실행:
-
-```bash
-export MAIL_USERNAME=본인주소@gmail.com
-export MAIL_PASSWORD=발급받은앱비밀번호   # 일반 로그인 비밀번호 아님!
-export JWT_SECRET=$(openssl rand -base64 48)
-```
-
-> IntelliJ에서는 Run Configuration → Environment variables에 넣으면 됨.
-
-### 비밀번호 재설정 플로우
-
-```
-1. POST /api/v1/auth/verification/send    { email, purpose: "PASSWORD_RESET" }
-   → Gmail로 6자리 인증번호 발송 (5분 유효)
-2. POST /api/v1/auth/verification/verify  { email, code, purpose: "PASSWORD_RESET" }
-   → 성공 시 { verificationToken } 반환 → 프론트는 재설정 화면으로 이동
-3. PATCH /api/v1/auth/password             { email, verificationToken, newPassword, newPasswordConfirm }
-   → 비밀번호 변경 완료 (토큰은 1회용, 10분 유효)
-```
-
-회원가입도 동일 플로우로 `purpose: "SIGNUP"` 사용 → 발급받은 verificationToken을 `/auth/signup`에 포함.
-
 ## API 개요
 
 | 도메인 | 엔드포인트 | 설명 |
@@ -78,30 +33,3 @@ export JWT_SECRET=$(openssl rand -base64 48)
 | Health | `/health` | 인증 없이 접근 가능한 헬스체크 |
 
 각 AI 연동 기능(위험도 분석, 이미지 보호, 얼굴 모니터링, 딥페이크 탐지, 챗봇)은 인터페이스로 분리되어 있으며, 현재는 `Stub*`/`RuleBased*` 구현체로 동작합니다 (AI 서버 연동 전 임시 구현).
-
-## 패키지 구조
-
-```
-com.signal
-├── global
-│   ├── config      # SecurityConfig 등
-│   ├── security    # JwtProvider, JwtAuthenticationFilter
-│   ├── exception   # ErrorCode, SignalException, GlobalExceptionHandler
-│   ├── response    # 공통 응답/에러 포맷
-│   ├── file        # 파일 업로드 공통 처리
-│   ├── mail        # 인증번호 메일 발송
-│   ├── util        # 공통 유틸
-│   └── health      # 헬스체크
-└── domain
-    ├── auth               # 로그인/회원가입/토큰
-    ├── user               # 회원 정보
-    ├── riskassessment     # 사진 위험도 진단
-    ├── protection         # 이미지 보호 처리
-    ├── monitoring         # 얼굴 모니터링
-    ├── deepfakedetection  # 정밀 딥페이크 탐지
-    ├── chat               # 익명 상담 챗봇
-    ├── report             # 신고 문서 자동 작성
-    └── agency             # 실제 기관 연결
-```
-
-각 도메인은 `controller / service / dto / entity / repository` 구조를 따르며, AI 연동이 필요한 도메인은 전략 인터페이스 디렉터리(`analyzer` / `protector` / `monitor` / `detector` / `engine` / `generator`)를 별도로 둡니다.
