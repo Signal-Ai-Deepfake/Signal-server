@@ -40,7 +40,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/chat/**").permitAll()
                         .requestMatchers("/api/v1/deepfake-detections/**").permitAll()
                         .requestMatchers("/api/v1/risk-assessments/**").permitAll()
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
