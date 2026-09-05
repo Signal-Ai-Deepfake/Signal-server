@@ -6,7 +6,7 @@ import java.util.Set;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 업로드 파일의 공통 검증(빈 파일, 최대 크기, 허용 확장자)을 담당한다.
+ * 업로드 파일의 공통 검증(빈 파일, 최대 크기, 허용 content-type)을 담당한다.
  * 도메인마다 최대 크기와 허용 content-type만 다르므로 값은 호출부에서 주입받는다.
  */
 public final class UploadFileValidator {
