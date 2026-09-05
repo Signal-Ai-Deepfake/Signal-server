@@ -8,6 +8,7 @@ import com.signal.domain.monitoring.repository.MonitoringRepository;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
 import com.signal.global.file.FileStorage;
+import com.signal.global.file.UploadFileValidator;
 import com.signal.global.util.TransactionUtils;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -33,7 +34,7 @@ public class MonitoringService {
 
     @Transactional
     public Monitoring createMonitoring(Long userId, MultipartFile referenceImage) {
-        validateImage(referenceImage);
+        UploadFileValidator.validate(referenceImage, MAX_IMAGE_SIZE, ALLOWED_CONTENT_TYPES);
 
         String referenceImageUrl = fileStorage.store(referenceImage, REFERENCE_IMAGE_DIRECTORY);
 
@@ -69,17 +70,5 @@ public class MonitoringService {
         }
 
         return monitoring;
-    }
-
-    private void validateImage(MultipartFile image) {
-        if (image == null || image.isEmpty()) {
-            throw new SignalException(ErrorCode.INVALID_INPUT);
-        }
-        if (image.getSize() > MAX_IMAGE_SIZE) {
-            throw new SignalException(ErrorCode.FILE_TOO_LARGE);
-        }
-        if (!ALLOWED_CONTENT_TYPES.contains(image.getContentType())) {
-            throw new SignalException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
-        }
     }
 }

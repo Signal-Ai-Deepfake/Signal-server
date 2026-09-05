@@ -7,6 +7,7 @@ import com.signal.domain.riskassessment.repository.RiskAssessmentRepository;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
 import com.signal.global.file.FileStorage;
+import com.signal.global.file.UploadFileValidator;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +32,7 @@ public class RiskAssessmentService {
 
     @Transactional
     public RiskAssessment createAssessment(Long userId, String anonymousId, MultipartFile image) {
-        validateImage(image);
+        UploadFileValidator.validate(image, MAX_IMAGE_SIZE, ALLOWED_CONTENT_TYPES);
         if (userId == null) {
             validateAnonymousUsage(anonymousId);
         }
@@ -79,18 +80,6 @@ public class RiskAssessmentService {
         }
         if (riskAssessmentRepository.countByAnonymousId(anonymousId) >= ANONYMOUS_ASSESSMENT_LIMIT) {
             throw new SignalException(ErrorCode.ANONYMOUS_RISK_ASSESSMENT_LIMIT_EXCEEDED);
-        }
-    }
-
-    private void validateImage(MultipartFile image) {
-        if (image == null || image.isEmpty()) {
-            throw new SignalException(ErrorCode.INVALID_INPUT);
-        }
-        if (image.getSize() > MAX_IMAGE_SIZE) {
-            throw new SignalException(ErrorCode.FILE_TOO_LARGE);
-        }
-        if (!ALLOWED_CONTENT_TYPES.contains(image.getContentType())) {
-            throw new SignalException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
         }
     }
 }

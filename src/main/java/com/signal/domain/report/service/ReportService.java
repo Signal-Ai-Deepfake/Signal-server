@@ -11,6 +11,7 @@ import com.signal.domain.report.repository.ReportRepository;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
 import com.signal.global.file.FileStorage;
+import com.signal.global.file.UploadFileValidator;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -96,7 +97,7 @@ public class ReportService {
 
     @Transactional
     public ReportEvidence uploadEvidence(Long userId, MultipartFile file) {
-        validateEvidenceFile(file);
+        UploadFileValidator.validate(file, MAX_EVIDENCE_FILE_SIZE, ALLOWED_EVIDENCE_CONTENT_TYPES);
 
         String fileUrl = fileStorage.store(file, EVIDENCE_DIRECTORY);
         ReportEvidence evidence = ReportEvidence.builder()
@@ -105,18 +106,6 @@ public class ReportService {
                 .build();
 
         return reportEvidenceRepository.save(evidence);
-    }
-
-    private void validateEvidenceFile(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new SignalException(ErrorCode.INVALID_INPUT);
-        }
-        if (file.getSize() > MAX_EVIDENCE_FILE_SIZE) {
-            throw new SignalException(ErrorCode.FILE_TOO_LARGE);
-        }
-        if (!ALLOWED_EVIDENCE_CONTENT_TYPES.contains(file.getContentType())) {
-            throw new SignalException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
-        }
     }
 
     private Report getOwnedReport(Long userId, Long reportId) {
