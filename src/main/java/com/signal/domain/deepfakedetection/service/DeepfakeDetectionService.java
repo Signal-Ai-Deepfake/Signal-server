@@ -6,6 +6,7 @@ import com.signal.domain.deepfakedetection.repository.DeepfakeDetectionRepositor
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
 import com.signal.global.file.FileStorage;
+import com.signal.global.file.UploadFileValidator;
 import com.signal.global.util.TransactionUtils;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,7 @@ public class DeepfakeDetectionService {
 
     @Transactional
     public DeepfakeDetection createDetection(Long userId, String anonymousId, MultipartFile file) {
-        validateFile(file);
+        UploadFileValidator.validate(file, MAX_FILE_SIZE, ALLOWED_CONTENT_TYPES);
         if (userId == null) {
             validateAnonymousUsage(anonymousId);
         }
@@ -69,18 +70,6 @@ public class DeepfakeDetectionService {
         }
         if (deepfakeDetectionRepository.countByAnonymousId(anonymousId) >= ANONYMOUS_DETECTION_LIMIT) {
             throw new SignalException(ErrorCode.ANONYMOUS_DETECTION_LIMIT_EXCEEDED);
-        }
-    }
-
-    private void validateFile(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw new SignalException(ErrorCode.INVALID_INPUT);
-        }
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new SignalException(ErrorCode.FILE_TOO_LARGE);
-        }
-        if (!ALLOWED_CONTENT_TYPES.contains(file.getContentType())) {
-            throw new SignalException(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
         }
     }
 }
