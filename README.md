@@ -36,7 +36,7 @@ Signal은 사용자가 SNS에 사진을 올리기 전 위험 요소를 진단하
 
 | 기능 | 구현체 | 상태 |
 | --- | --- | --- |
-| 챗봇 | `LlmChatEngine` | Groq LLM 연동 (일반 대화 답변만 LLM 생성, 위기 감지·추천 행동/기관은 룰 기반) |
+| 챗봇 | `LlmChatEngine` | Groq LLM 연동 (일반 대화 답변만 LLM 생성, 위기 감지·추천 행동/기관은 룰 기반, 같은 세션 최근 대화 최대 10개를 맥락으로 함께 전달) |
 | 위험도 분석 | `LlmRiskAnalyzer` | Groq 비전 LLM 연동 (이미지 품질·얼굴 노출도·역검색 위험 추정은 LLM, 메타데이터 노출은 EXIF 직접 판독) |
 | 딥페이크 탐지 | `LlmDeepfakeDetector` | Groq 비전 LLM 연동 (이미지만 지원, 영상은 미지원이라 룰 기반 폴백) |
 | 이미지 보호 처리 | `StubImageProtector` | 미구현 (Stub) — 적대적 노이즈 삽입은 별도 이미지 처리 엔진 필요, LLM 텍스트/비전 API로는 불가능 |
