@@ -25,7 +25,8 @@ class SecurityErrorHandlerTest {
                 new InsufficientAuthenticationException("인증 정보 없음"));
 
         assertThat(response.getStatus()).isEqualTo(401);
-        assertThat(response.getContentType()).isEqualTo(MediaType.APPLICATION_JSON_VALUE);
+        assertThat(response.getContentType()).startsWith(MediaType.APPLICATION_JSON_VALUE);
+        assertThat(response.getCharacterEncoding()).isEqualToIgnoringCase("UTF-8");
 
         ErrorResponse body = objectMapper.readValue(response.getContentAsString(), ErrorResponse.class);
         assertThat(body.status()).isEqualTo(401);
@@ -42,7 +43,8 @@ class SecurityErrorHandlerTest {
                 new AccessDeniedException("권한 없음"));
 
         assertThat(response.getStatus()).isEqualTo(403);
-        assertThat(response.getContentType()).isEqualTo(MediaType.APPLICATION_JSON_VALUE);
+        assertThat(response.getContentType()).startsWith(MediaType.APPLICATION_JSON_VALUE);
+        assertThat(response.getCharacterEncoding()).isEqualToIgnoringCase("UTF-8");
 
         ErrorResponse body = objectMapper.readValue(response.getContentAsString(), ErrorResponse.class);
         assertThat(body.status()).isEqualTo(403);
