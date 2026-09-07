@@ -3,6 +3,7 @@ package com.signal.domain.chat.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -10,6 +11,8 @@ import static org.mockito.Mockito.when;
 import com.signal.domain.chat.dto.response.ChatSummaryResponse;
 import com.signal.domain.chat.engine.ChatEngine;
 import com.signal.domain.chat.engine.ChatEngineResponse;
+import com.signal.domain.chat.engine.ChatSpeaker;
+import com.signal.domain.chat.engine.ChatTurn;
 import com.signal.domain.chat.engine.SituationType;
 import com.signal.domain.chat.entity.ChatMessage;
 import com.signal.domain.chat.entity.ChatRole;
@@ -68,7 +71,7 @@ class ChatServiceTest {
         when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
         ChatEngineResponse engineResponse = new ChatEngineResponse(
                 "안녕하세요", SituationType.GENERAL, List.of("조금 더 알려주세요"), false, List.of());
-        when(chatEngine.respond("안녕")).thenReturn(engineResponse);
+        when(chatEngine.respond(eq("안녕"), any())).thenReturn(engineResponse);
         when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
 
@@ -84,6 +87,34 @@ class ChatServiceTest {
         assertThat(saved.get(0).getRole()).isEqualTo(ChatRole.USER);
         assertThat(saved.get(0).getContent()).isEqualTo("안녕");
         assertThat(saved.get(1).getRole()).isEqualTo(ChatRole.BOT);
+    }
+
+    @Test
+    void 이전_메시지가_있으면_history로_변환해_엔진에_전달한다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+
+        ChatMessage prevUser = ChatMessage.builder()
+                .chatSessionId(session.getId()).role(ChatRole.USER).content("전에 한 말").build();
+        ChatMessage prevBot = ChatMessage.builder()
+                .chatSessionId(session.getId()).role(ChatRole.BOT).content("전에 답한 말").build();
+        when(chatMessageRepository.findByChatSessionIdOrderByCreatedAtAsc(session.getId()))
+                .thenReturn(List.of(prevUser, prevBot));
+
+        ChatEngineResponse engineResponse = new ChatEngineResponse(
+                "답변", SituationType.GENERAL, List.of(), false, List.of());
+        when(chatEngine.respond(eq("이어서 말할게요"), any())).thenReturn(engineResponse);
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+
+        chatService.sendMessage("session-1", 1L, null, "이어서 말할게요");
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ChatTurn>> historyCaptor = ArgumentCaptor.forClass(List.class);
+        verify(chatEngine).respond(eq("이어서 말할게요"), historyCaptor.capture());
+        assertThat(historyCaptor.getValue()).containsExactly(
+                new ChatTurn(ChatSpeaker.USER, "전에 한 말"),
+                new ChatTurn(ChatSpeaker.BOT, "전에 답한 말"));
     }
 
     @Test
@@ -147,7 +178,7 @@ class ChatServiceTest {
 
         ChatEngineResponse engineResponse = new ChatEngineResponse(
                 "평범한 답변", SituationType.IMAGE_ABUSE, List.of(), false, List.of());
-        when(chatEngine.respond("고마워요")).thenReturn(engineResponse);
+        when(chatEngine.respond(eq("고마워요"), any())).thenReturn(engineResponse);
         when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "고마워요");
@@ -190,7 +221,7 @@ class ChatServiceTest {
         when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
         ChatEngineResponse engineResponse = new ChatEngineResponse(
                 "더 말씀해주세요", SituationType.IMAGE_ABUSE, List.of(), false, List.of());
-        when(chatEngine.respond("더 얘기하고 싶어요")).thenReturn(engineResponse);
+        when(chatEngine.respond(eq("더 얘기하고 싶어요"), any())).thenReturn(engineResponse);
 
         SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "더 얘기하고 싶어요");
 
