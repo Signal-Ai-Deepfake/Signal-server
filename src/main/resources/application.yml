@@ -75,6 +75,12 @@ chat:
     model: ${CHAT_LLM_MODEL:openai/gpt-oss-120b}           # Groq에서 llama-3.3-70b-versatile 등이 폐기(2026-08-16)되며 대체된 범용 모델
     max-completion-tokens: ${CHAT_LLM_MAX_TOKENS:400}
 
+vision:
+  llm:
+    enabled: ${VISION_LLM_ENABLED:true}                   # false면 위험도분석/딥페이크탐지 둘 다 룰 기반 결과만 사용
+    model: ${VISION_LLM_MODEL:qwen/qwen3.6-27b}            # Groq의 비전(이미지 입력) 지원 모델 (chat.llm과 같은 GROQ_API_KEY 사용)
+    max-completion-tokens: ${VISION_LLM_MAX_TOKENS:1024}
+
 server:
   port: 8080
 
