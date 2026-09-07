@@ -32,6 +32,8 @@ scp .env <서버계정>@<서버주소>:~/signal-server/.env
 
 scp로 옮기는 게 제일 안전함 (실제 비밀번호/키가 이 문서에는 안 적혀있음 — 로컬 `.env`에만 있음).
 
+> 챗봇이 실제 LLM(Groq)으로 답하게 하려면 `.env`에 `GROQ_API_KEY`를 추가해야 함 (https://console.groq.com 에서 무료 발급). 없어도 서버는 정상 구동되며, 이 경우 챗봇은 자동으로 룰 기반 응답으로 동작함.
+
 ## 3. 최초 1회: DB 스키마 생성
 
 `prod` 프로필은 `ddl-auto: validate`라서 빈 DB에는 그냥 못 뜸. 최초 1번만 `update` 모드로 스키마를 만들어줘야 함.

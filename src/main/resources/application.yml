@@ -23,6 +23,11 @@ spring:
       max-file-size: 100MB      # 딥페이크 탐지의 영상 업로드를 지원하기 위해 상향 (이미지 전용 API는 서비스 레벨에서 10MB로 별도 제한)
       max-request-size: 110MB
 
+  http:
+    client:
+      connect-timeout: 5s   # 외부 AI(LLM) API 호출 등 아웃바운드 HTTP 공통 타임아웃
+      read-timeout: 10s
+
   mail:
     host: ${SMTP_HOST:smtp.gmail.com}
     port: ${SMTP_PORT:587}
@@ -61,6 +66,14 @@ monitoring:
 
 deepfake-detection:
   processing-delay-ms: 3000   # 딥페이크 탐지 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
+
+chat:
+  llm:
+    enabled: ${CHAT_LLM_ENABLED:true}                     # false면 룰 기반(RuleBasedChatEngine) 답변만 사용
+    api-key: ${GROQ_API_KEY:}                             # 비어있으면 자동으로 룰 기반 응답으로 폴백 (앱은 정상 구동됨)
+    base-url: ${CHAT_LLM_BASE_URL:https://api.groq.com/openai/v1}   # Groq는 OpenAI 호환 API 제공 (무료 티어, https://console.groq.com)
+    model: ${CHAT_LLM_MODEL:openai/gpt-oss-120b}           # Groq에서 llama-3.3-70b-versatile 등이 폐기(2026-08-16)되며 대체된 범용 모델
+    max-completion-tokens: ${CHAT_LLM_MAX_TOKENS:400}
 
 server:
   port: 8080
