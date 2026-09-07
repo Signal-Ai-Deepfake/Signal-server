@@ -14,6 +14,9 @@ services:
       retries: 20
 
   app:
+    # CD는 GHCR에 미리 빌드된 이미지를 APP_IMAGE로 주입한다.
+    # 값이 없으면 :main 태그를 쓰고, 로컬에서는 `docker compose build app`으로 직접 빌드해도 된다.
+    image: ${APP_IMAGE:-ghcr.io/signal-ai-deepfake/signal-server:main}
     build: .
     restart: unless-stopped
     depends_on:
