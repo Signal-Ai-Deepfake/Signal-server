@@ -10,14 +10,15 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
- * 실제 AI 서버 연동 전까지 사용하는 스텁 구현체. 이미지 바이트 해시로 점수를 결정론적으로 산출해
- * 동일 이미지에 대해 항상 같은 결과를 반환한다. 실서버 연동 시 이 클래스를 교체한다.
+ * 이미지 바이트 해시로 점수를 결정론적으로 산출하는 룰 기반 분석기.
+ *
+ * 더 이상 Spring 빈으로 직접 등록되지 않는다({@link LlmRiskAnalyzer} 참고). LlmRiskAnalyzer가 이 클래스를
+ * 내부적으로 LLM 미설정/호출 실패 시의 폴백으로 사용하며, 위험도별 권고 문구({@link #buildRecommendations})처럼
+ * 안전이 중요한 정형화된 텍스트도 계속 이 클래스가 담당한다(LLM이 임의로 지어내지 않도록).
  */
-@Component
 public class StubRiskAnalyzer implements RiskAnalyzer {
 
     private static final List<String> FACTOR_TYPES = List.of(
@@ -71,7 +72,7 @@ public class StubRiskAnalyzer implements RiskAnalyzer {
                 .build();
     }
 
-    private List<String> buildRecommendations(RiskLevel riskLevel) {
+    List<String> buildRecommendations(RiskLevel riskLevel) {
         return switch (riskLevel) {
             case HIGH -> List.of(
                     "해당 이미지의 공개 게시를 자제하세요.",
