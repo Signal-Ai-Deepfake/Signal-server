@@ -11,18 +11,19 @@ import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Component;
 
 /**
- * 실제 AI 서버 연동 전까지 사용하는 스텁 구현체. 파일 바이트 해시로 verdict/riskScore/근거를
- * 결정론적으로 산출하고, 원본 파일을 그대로 복제해 하이라이트 결과로 저장한다.
- * 실서버 연동 시 이 클래스를 교체한다.
+ * 파일 바이트 해시로 verdict/riskScore/근거를 결정론적으로 산출하는 룰 기반 탐지기.
+ * 원본 파일을 그대로 복제해 하이라이트 결과로 저장한다.
+ *
+ * 더 이상 Spring 빈으로 직접 등록되지 않는다({@link LlmDeepfakeDetector} 참고). LlmDeepfakeDetector가
+ * 이 클래스를 내부적으로 (1) 영상 입력(비전 LLM 미지원) (2) LLM 미설정/호출 실패 시의 폴백으로 사용하며,
+ * verdict 산출({@link #toVerdict})과 완료/실패 처리({@link #markCompleted}/{@link #markFailed})도 그대로 재사용한다.
  *
  * DeepfakeDetectionService(→DeepfakeDetector) 의존 방향의 순환을 피하기 위해 완료/실패
  * 처리 시 DeepfakeDetectionService가 아닌 DeepfakeDetectionRepository에 직접 접근한다.
  */
 @Slf4j
-@Component
 public class StubDeepfakeDetector implements DeepfakeDetector {
 
     private static final List<String> EVIDENCE_TYPES = List.of(
@@ -66,7 +67,7 @@ public class StubDeepfakeDetector implements DeepfakeDetector {
         }
     }
 
-    private Verdict toVerdict(int riskScore) {
+    Verdict toVerdict(int riskScore) {
         if (riskScore < 30) {
             return Verdict.REAL;
         }
@@ -110,15 +111,15 @@ public class StubDeepfakeDetector implements DeepfakeDetector {
         };
     }
 
-    private void markCompleted(Long detectionId, Verdict verdict, double confidence, int riskScore,
-                                List<Evidence> evidences, String highlightedResultUrl) {
+    void markCompleted(Long detectionId, Verdict verdict, double confidence, int riskScore,
+                        List<Evidence> evidences, String highlightedResultUrl) {
         deepfakeDetectionRepository.findById(detectionId).ifPresent(detection -> {
             detection.complete(verdict, confidence, riskScore, evidences, highlightedResultUrl);
             deepfakeDetectionRepository.save(detection);
         });
     }
 
-    private void markFailed(Long detectionId) {
+    void markFailed(Long detectionId) {
         deepfakeDetectionRepository.findById(detectionId).ifPresent(detection -> {
             detection.fail();
             deepfakeDetectionRepository.save(detection);
