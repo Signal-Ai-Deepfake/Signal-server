@@ -64,13 +64,20 @@ public class RiskAssessment {
     @OrderColumn(name = "face_order")
     private List<DetectedFace> faces;
 
+    /**
+     * true면 이번 결과가 실제 비전 LLM 응답이 아니라 {@link com.signal.domain.riskassessment.analyzer.StubRiskAnalyzer}의
+     * 파일 해시 기반 결정론적 폴백값이라는 뜻이다 (LLM 미설정/호출·파싱 실패 등).
+     */
+    @Column(nullable = false)
+    private boolean fallbackUsed;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     @Builder
     public RiskAssessment(Long userId, String anonymousId, String imageUrl, RiskLevel overallRiskLevel,
                            int overallScore, boolean faceDetected, List<RiskFactor> factors,
-                           List<String> recommendations, List<DetectedFace> faces) {
+                           List<String> recommendations, List<DetectedFace> faces, boolean fallbackUsed) {
         this.userId = userId;
         this.anonymousId = anonymousId;
         this.imageUrl = imageUrl;
@@ -80,6 +87,7 @@ public class RiskAssessment {
         this.factors = factors;
         this.recommendations = recommendations;
         this.faces = faces;
+        this.fallbackUsed = fallbackUsed;
         this.createdAt = LocalDateTime.now();
     }
 

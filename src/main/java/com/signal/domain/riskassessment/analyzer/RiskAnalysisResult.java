@@ -11,10 +11,15 @@ public record RiskAnalysisResult(
         int overallScore,
         List<RiskFactor> factors,
         List<String> recommendations,
-        List<DetectedFace> faces
+        List<DetectedFace> faces,
+        boolean fallbackUsed
 ) {
 
-    public static RiskAnalysisResult faceNotDetected() {
-        return new RiskAnalysisResult(false, null, 0, List.of(), List.of(), List.of());
+    /**
+     * @param fallbackUsed true면 {@link StubRiskAnalyzer}(룰 기반 폴백)가 내린 판단, false면 실제
+     *                      비전 LLM이 얼굴을 못 찾았다고 답한 것.
+     */
+    public static RiskAnalysisResult faceNotDetected(boolean fallbackUsed) {
+        return new RiskAnalysisResult(false, null, 0, List.of(), List.of(), List.of(), fallbackUsed);
     }
 }

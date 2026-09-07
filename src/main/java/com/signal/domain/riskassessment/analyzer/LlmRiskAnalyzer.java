@@ -50,6 +50,9 @@ public class LlmRiskAnalyzer implements RiskAnalyzer {
             - 이미지에 사람 얼굴이 없으면 faceDetected를 false로 하고 나머지 숫자 필드는 0으로 채우세요.
             - reverseSearchRiskScore는 실제 역이미지 검색을 수행한 결과가 아니라, 배경·특징의 독특함에
               기반한 추정치입니다. 이 점을 note에도 자연스럽게 반영하세요.
+            - 각 note는 반드시 같은 항목의 score와 앞뒤가 맞아야 합니다. score가 낮은데 note는 위험한
+              것처럼 쓰거나, score가 높은데 note는 괜찮다는 식으로 쓰지 마세요. note는 그 score를 준
+              구체적인 이유를 설명해야 합니다.
             - 아래 JSON 형식으로만 답하세요. 코드블록이나 다른 설명 없이 순수 JSON만 출력하세요.
 
             {
@@ -100,7 +103,7 @@ public class LlmRiskAnalyzer implements RiskAnalyzer {
         VisionRiskAssessment parsed = parseResponse(rawResponse);
 
         if (!parsed.faceDetected()) {
-            return RiskAnalysisResult.faceNotDetected();
+            return RiskAnalysisResult.faceNotDetected(false);
         }
 
         List<RiskFactor> factors = buildFactors(parsed, hasGpsMetadata);
@@ -110,7 +113,7 @@ public class LlmRiskAnalyzer implements RiskAnalyzer {
         List<String> recommendations = fallbackAnalyzer.buildRecommendations(riskLevel);
         DetectedFace face = buildFace(parsed, pixelSize);
 
-        return new RiskAnalysisResult(true, riskLevel, overallScore, factors, recommendations, List.of(face));
+        return new RiskAnalysisResult(true, riskLevel, overallScore, factors, recommendations, List.of(face), false);
     }
 
     private List<RiskFactor> buildFactors(VisionRiskAssessment parsed, boolean hasGpsMetadata) {
