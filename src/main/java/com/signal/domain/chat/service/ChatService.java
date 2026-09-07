@@ -3,6 +3,8 @@ package com.signal.domain.chat.service;
 import com.signal.domain.chat.dto.response.ChatSummaryResponse;
 import com.signal.domain.chat.engine.ChatEngine;
 import com.signal.domain.chat.engine.ChatEngineResponse;
+import com.signal.domain.chat.engine.ChatSpeaker;
+import com.signal.domain.chat.engine.ChatTurn;
 import com.signal.domain.chat.engine.SituationType;
 import com.signal.domain.chat.entity.ChatMessage;
 import com.signal.domain.chat.entity.ChatRole;
@@ -31,6 +33,7 @@ public class ChatService {
     private static final long ANONYMOUS_CHAT_SESSION_LIMIT = 5;
     private static final int PROGRESS_STAGE_COUNT = 6;
     private static final int PROGRESS_STAGE_WEIGHT = 16;
+    private static final int MAX_HISTORY_MESSAGES = 10;   // LLM에 넘길 이전 대화 최대 개수 (토큰 사용량 상한)
     private static final Pattern URL_PATTERN = Pattern.compile("https?://\\S+", Pattern.CASE_INSENSITIVE);
     private static final List<String> END_CONFIRM_KEYWORDS = List.of(
             "네", "응", "좋아", "그만할래", "종료할래", "끝낼래", "마무리", "그래");
@@ -61,6 +64,8 @@ public class ChatService {
     @Transactional
     public SendMessageResult sendMessage(String sessionId, Long userId, String anonymousId, String content) {
         ChatSession session = getOwnedSession(sessionId, userId, anonymousId);
+        List<ChatTurn> history = buildHistory(session.getId());
+
         session.recordUserMessage(content);
         if (URL_PATTERN.matcher(content).find()) {
             session.markEvidenceUrlMentioned();
@@ -72,7 +77,7 @@ public class ChatService {
                 .content(content)
                 .build());
 
-        ChatEngineResponse engineResponse = resolveEngineResponse(session, userId, content);
+        ChatEngineResponse engineResponse = resolveEngineResponse(session, userId, content, history);
 
         ChatMessage botMessage = chatMessageRepository.save(ChatMessage.builder()
                 .chatSessionId(session.getId())
@@ -83,7 +88,18 @@ public class ChatService {
         return new SendMessageResult(botMessage, engineResponse, session.isSessionEnded());
     }
 
-    private ChatEngineResponse resolveEngineResponse(ChatSession session, Long userId, String content) {
+    private List<ChatTurn> buildHistory(Long chatSessionId) {
+        List<ChatMessage> messages = chatMessageRepository.findByChatSessionIdOrderByCreatedAtAsc(chatSessionId);
+        int fromIndex = Math.max(0, messages.size() - MAX_HISTORY_MESSAGES);
+        return messages.subList(fromIndex, messages.size()).stream()
+                .map(message -> new ChatTurn(
+                        message.getRole() == ChatRole.USER ? ChatSpeaker.USER : ChatSpeaker.BOT,
+                        message.getContent()))
+                .toList();
+    }
+
+    private ChatEngineResponse resolveEngineResponse(
+            ChatSession session, Long userId, String content, List<ChatTurn> history) {
         if (session.isAwaitingEndConfirmation()) {
             boolean confirmed = END_CONFIRM_KEYWORDS.stream().anyMatch(content::contains);
             session.resolveEndConfirmation(confirmed);
@@ -93,7 +109,7 @@ public class ChatService {
             }
         }
 
-        ChatEngineResponse engineResponse = chatEngine.respond(content);
+        ChatEngineResponse engineResponse = chatEngine.respond(content, history);
         boolean agenciesGiven = !engineResponse.recommendedAgencies().isEmpty();
         session.recordEngineResult(engineResponse.situationType(), engineResponse.crisisDetected(), agenciesGiven);
 
