@@ -1,5 +1,47 @@
 # 배포 가이드 (학교 서버 / Docker)
 
+## 자동 배포 (CD)
+
+`main`에 push되면 [.github/workflows/deploy.yml](.github/workflows/deploy.yml)이 자동으로 배포한다.
+
+1. GitHub 러너가 이미지를 빌드해 `ghcr.io/signal-ai-deepfake/signal-server:<sha>`로 push
+2. 서버에 SSH 접속 → 해당 커밋으로 `git reset --hard` → 이미지 pull → 컨테이너 교체
+3. 헬스체크 실패 시 **이전 이미지로 자동 롤백**
+
+서버가 1 vCPU / 2GB라서 서버에서 직접 빌드하면 배포 중 API가 응답 불능이 될 수 있다.
+그래서 빌드는 러너에서 하고 서버는 pull만 한다.
+
+PR을 열면 배포 없이 **빌드만 검증**한다.
+
+### 엔티티에 필드/테이블이 추가된 배포
+
+`prod` 프로필은 `ddl-auto: validate`라서 스키마를 먼저 반영해야 한다.
+Actions → CD → **Run workflow**에서 `run_schema_update`를 체크하고 실행한다.
+(push로 자동 실행된 배포는 이 단계를 건너뛰므로, 스키마가 안 맞으면 헬스체크에서 실패하고 롤백된다.)
+
+### 서버에 필요한 것
+
+`.env`만 서버에 있으면 된다 (git에 안 올라가므로 최초 1회 직접 생성).
+CD는 `.env`를 건드리지 않으며, `git reset --hard`는 gitignore된 `.env`를 지우지 않는다.
+단 **추적되는 파일을 서버에서 직접 수정하면 배포 때 덮어써진다.**
+
+### 필요한 GitHub Secrets
+
+| 이름 | 값 |
+| --- | --- |
+| `SSH_HOST` | 서버 주소 |
+| `SSH_PORT` | SSH 포트 |
+| `SSH_USER` | 접속 계정 |
+| `SSH_PRIVATE_KEY` | 배포용 SSH 개인키 (공개키는 서버 `~/.ssh/authorized_keys`에 등록) |
+
+GHCR 인증은 워크플로의 `GITHUB_TOKEN`을 서버에 전달해 처리하므로 별도 PAT가 필요 없다.
+
+---
+
+## 수동 배포
+
+아래는 CD 없이 직접 배포하거나, CD가 실패했을 때 쓰는 절차다.
+
 ## 0. 사전 준비 (서버에 Docker 설치돼있어야 함)
 
 ```bash
