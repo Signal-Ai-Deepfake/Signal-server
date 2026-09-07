@@ -29,7 +29,7 @@ public class StubRiskAnalyzer implements RiskAnalyzer {
         int seed = Math.abs(contentHash(image));
 
         if (seed % 10 == 0) {
-            return RiskAnalysisResult.faceNotDetected();
+            return RiskAnalysisResult.faceNotDetected(true);
         }
 
         int overallScore = seed % 101;
@@ -41,7 +41,8 @@ public class StubRiskAnalyzer implements RiskAnalyzer {
                 overallScore,
                 buildFactors(seed),
                 buildRecommendations(overallRiskLevel),
-                List.of(buildFace(seed)));
+                List.of(buildFace(seed)),
+                true);
     }
 
     private List<RiskFactor> buildFactors(int seed) {

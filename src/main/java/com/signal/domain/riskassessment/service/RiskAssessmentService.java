@@ -54,6 +54,7 @@ public class RiskAssessmentService {
                 .factors(result.factors())
                 .recommendations(result.recommendations())
                 .faces(result.faces())
+                .fallbackUsed(result.fallbackUsed())
                 .build();
 
         return riskAssessmentRepository.save(riskAssessment);

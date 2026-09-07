@@ -11,7 +11,8 @@ public record RiskAssessmentResponse(
         List<RiskFactorResponse> factors,
         List<String> recommendations,
         boolean faceDetected,
-        List<FaceResponse> faces
+        List<FaceResponse> faces,
+        boolean fallbackUsed
 ) {
 
     public static RiskAssessmentResponse from(RiskAssessment riskAssessment) {
@@ -22,6 +23,7 @@ public record RiskAssessmentResponse(
                 riskAssessment.getFactors().stream().map(RiskFactorResponse::from).toList(),
                 riskAssessment.getRecommendations(),
                 riskAssessment.isFaceDetected(),
-                riskAssessment.getFaces().stream().map(FaceResponse::from).toList());
+                riskAssessment.getFaces().stream().map(FaceResponse::from).toList(),
+                riskAssessment.isFallbackUsed());
     }
 }

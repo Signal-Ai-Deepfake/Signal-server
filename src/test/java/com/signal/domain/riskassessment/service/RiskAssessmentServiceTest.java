@@ -58,7 +58,8 @@ class RiskAssessmentServiceTest {
                 List.of(DetectedFace.builder()
                         .faceIndex(0)
                         .boundingBox(BoundingBox.builder().x(1).y(2).width(3).height(4).build())
-                        .build()));
+                        .build()),
+                false);
 
         when(riskAnalyzer.analyze(image)).thenReturn(result);
         when(fileStorage.store(any(), anyString())).thenReturn("/uploads/risk-assessments/generated.png");
@@ -72,13 +73,14 @@ class RiskAssessmentServiceTest {
         assertThat(saved.isFaceDetected()).isTrue();
         assertThat(saved.getFactors()).hasSize(1);
         assertThat(saved.getFaces()).hasSize(1);
+        assertThat(saved.isFallbackUsed()).isFalse();
         verify(fileStorage).store(image, "risk-assessments");
     }
 
     @Test
     void 얼굴이_검출되지_않으면_예외가_발생한다() {
         MockMultipartFile image = new MockMultipartFile("image", "photo.png", "image/png", new byte[]{1, 2, 3});
-        when(riskAnalyzer.analyze(image)).thenReturn(RiskAnalysisResult.faceNotDetected());
+        when(riskAnalyzer.analyze(image)).thenReturn(RiskAnalysisResult.faceNotDetected(false));
 
         assertThatThrownBy(() -> riskAssessmentService.createAssessment(1L, null, image))
                 .isInstanceOf(SignalException.class)

@@ -57,7 +57,8 @@ public class StubDeepfakeDetector implements DeepfakeDetector {
             List<Evidence> evidences = buildEvidences(seed, isVideo);
             String highlightedResultUrl = fileStorage.store(content, "highlighted.png", HIGHLIGHTED_RESULT_DIRECTORY);
 
-            markCompleted(detectionId, verdict, confidence, riskScore, evidences, highlightedResultUrl);
+            // 이 클래스는 항상 룰 기반(해시 기반) 폴백 경로이므로 fallbackUsed는 항상 true.
+            markCompleted(detectionId, verdict, confidence, riskScore, evidences, highlightedResultUrl, true);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             markFailed(detectionId);
@@ -112,9 +113,9 @@ public class StubDeepfakeDetector implements DeepfakeDetector {
     }
 
     void markCompleted(Long detectionId, Verdict verdict, double confidence, int riskScore,
-                        List<Evidence> evidences, String highlightedResultUrl) {
+                        List<Evidence> evidences, String highlightedResultUrl, boolean fallbackUsed) {
         deepfakeDetectionRepository.findById(detectionId).ifPresent(detection -> {
-            detection.complete(verdict, confidence, riskScore, evidences, highlightedResultUrl);
+            detection.complete(verdict, confidence, riskScore, evidences, highlightedResultUrl, fallbackUsed);
             deepfakeDetectionRepository.save(detection);
         });
     }
