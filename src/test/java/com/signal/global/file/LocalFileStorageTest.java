@@ -1,6 +1,10 @@
 package com.signal.global.file;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import com.signal.global.exception.ErrorCode;
+import com.signal.global.exception.SignalException;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -75,5 +79,29 @@ class LocalFileStorageTest {
             assertThat(files.filter(Files::isRegularFile).map(f -> f.getParent()))
                     .containsOnly(tempDir.resolve("profile"));
         }
+    }
+
+    @Test
+    void 업로드_디렉토리_밖을_가리키는_URL은_읽을_수_없다() throws Exception {
+        LocalFileStorage storage = new LocalFileStorage(tempDir.resolve("root").toString(), "/uploads");
+        storage.init();
+        Path outside = Files.write(tempDir.resolve("secret.txt"), new byte[]{9});
+
+        assertThatThrownBy(() -> storage.load("/uploads/../secret.txt"))
+                .isInstanceOfSatisfying(SignalException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+        assertThatThrownBy(() -> storage.load(outside.toString()))
+                .isInstanceOfSatisfying(SignalException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
+
+    @Test
+    void 업로드_디렉토리_밖으로_벗어나는_저장_디렉토리는_거부한다() {
+        LocalFileStorage storage = new LocalFileStorage(tempDir.resolve("root").toString(), "/uploads");
+        storage.init();
+
+        assertThatThrownBy(() -> storage.store(new byte[]{1}, "a.png", "../escape"))
+                .isInstanceOfSatisfying(SignalException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT));
     }
 }

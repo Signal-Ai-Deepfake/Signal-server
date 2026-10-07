@@ -74,6 +74,10 @@ public class LocalFileStorage implements FileStorage {
     public byte[] load(String url) {
         String relativePath = url.startsWith(baseUrl + "/") ? url.substring(baseUrl.length() + 1) : url;
         Path target = rootDir.resolve(relativePath).normalize();
+        if (!target.startsWith(rootDir)) {
+            log.error("업로드 디렉토리 밖의 파일 접근 시도: {}", url);
+            throw new SignalException(ErrorCode.NOT_FOUND);
+        }
 
         try {
             return Files.readAllBytes(target);
@@ -84,7 +88,11 @@ public class LocalFileStorage implements FileStorage {
     }
 
     private Path resolveTarget(String directory, String filename) {
-        return rootDir.resolve(directory).normalize().resolve(filename);
+        Path target = rootDir.resolve(directory).normalize().resolve(filename).normalize();
+        if (!target.startsWith(rootDir)) {
+            throw new SignalException(ErrorCode.INVALID_INPUT);
+        }
+        return target;
     }
 
     private String toUrl(String directory, String filename) {
