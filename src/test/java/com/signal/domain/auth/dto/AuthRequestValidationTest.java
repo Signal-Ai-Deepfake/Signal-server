@@ -9,7 +9,7 @@ import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import org.junit.jupiter.api.Test;
 
-class PasswordValidationTest {
+class AuthRequestValidationTest {
 
     private final Validator validator = Validation.buildDefaultValidatorFactory().getValidator();
 
@@ -38,5 +38,17 @@ class PasswordValidationTest {
     void 비밀번호가_8자_이상_72자_이하이면_통과한다() {
         assertThat(validator.validate(signup("password1"))).isEmpty();
         assertThat(validator.validate(reset("a".repeat(72)))).isEmpty();
+    }
+
+    @Test
+    void 가입시_이름이_50자를_넘거나_나이가_범위를_벗어나면_거부한다() {
+        SignupRequest base = signup("password1");
+
+        assertThat(validator.validate(new SignupRequest(base.email(), base.password(), base.verificationToken(),
+                "가".repeat(51), 20, base.gender(), base.agreements()))).isNotEmpty();
+        assertThat(validator.validate(new SignupRequest(base.email(), base.password(), base.verificationToken(),
+                "홍길동", 0, base.gender(), base.agreements()))).isNotEmpty();
+        assertThat(validator.validate(new SignupRequest(base.email(), base.password(), base.verificationToken(),
+                "홍길동", 200, base.gender(), base.agreements()))).isNotEmpty();
     }
 }
