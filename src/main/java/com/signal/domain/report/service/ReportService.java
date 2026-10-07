@@ -12,6 +12,7 @@ import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
 import com.signal.global.file.FileStorage;
 import com.signal.global.file.UploadFileValidator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +39,7 @@ public class ReportService {
     @Transactional
     public Report createReport(Long userId, CreateReportRequest request) {
         validateRequired(request.description(), request.sourceUrls());
+        validateEvidenceOwnership(userId, request.evidenceIds());
 
         String documentUrl = reportDocumentGenerator.generate(ReportStatus.DRAFT);
 
@@ -68,6 +70,7 @@ public class ReportService {
     public Report updateReport(Long userId, Long reportId, UpdateReportRequest request) {
         Report report = getOwnedReport(userId, reportId);
         validateDraft(report);
+        validateEvidenceOwnership(userId, request.evidenceIds());
 
         String documentUrl = reportDocumentGenerator.generate(ReportStatus.DRAFT);
         report.applyPatch(
@@ -117,6 +120,22 @@ public class ReportService {
         }
 
         return report;
+    }
+
+    /** 신고서에는 본인이 업로드한 증거만 연결할 수 있다. */
+    private void validateEvidenceOwnership(Long userId, List<Long> evidenceIds) {
+        if (evidenceIds == null || evidenceIds.isEmpty()) {
+            return;
+        }
+
+        Set<Long> uniqueIds = new HashSet<>(evidenceIds);
+        List<ReportEvidence> evidences = reportEvidenceRepository.findAllById(uniqueIds);
+        if (evidences.size() != uniqueIds.size()) {
+            throw new SignalException(ErrorCode.NOT_FOUND);
+        }
+        if (evidences.stream().anyMatch(evidence -> !evidence.isOwnedBy(userId))) {
+            throw new SignalException(ErrorCode.FORBIDDEN);
+        }
     }
 
     private void validateDraft(Report report) {

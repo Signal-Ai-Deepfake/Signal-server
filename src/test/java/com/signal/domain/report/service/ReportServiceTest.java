@@ -3,6 +3,8 @@ package com.signal.domain.report.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import com.signal.domain.report.dto.request.CreateReportRequest;
@@ -11,6 +13,7 @@ import com.signal.domain.report.entity.Report;
 import com.signal.domain.report.entity.ReportStatus;
 import com.signal.domain.report.entity.TimelineEvent;
 import com.signal.domain.report.generator.ReportDocumentGenerator;
+import com.signal.domain.report.entity.ReportEvidence;
 import com.signal.domain.report.repository.ReportEvidenceRepository;
 import com.signal.domain.report.repository.ReportRepository;
 import com.signal.global.exception.ErrorCode;
@@ -63,6 +66,9 @@ class ReportServiceTest {
     void 신고서를_생성하면_DRAFT_상태로_저장되고_문서URL이_생성된다() {
         when(reportDocumentGenerator.generate(ReportStatus.DRAFT)).thenReturn("https://stub/draft.pdf");
         when(reportRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reportEvidenceRepository.findAllById(any())).thenReturn(List.of(
+                ReportEvidence.builder().userId(1L).fileUrl("/uploads/a.png").build(),
+                ReportEvidence.builder().userId(1L).fileUrl("/uploads/b.png").build()));
 
         Report report = reportService.createReport(1L, sampleRequest());
 
@@ -71,6 +77,45 @@ class ReportServiceTest {
         assertThat(report.getDocumentUrl()).isEqualTo("https://stub/draft.pdf");
         assertThat(report.getTimeline()).hasSize(1);
         assertThat(report.getTimeline().get(0).getEvent()).isEqualTo(TimelineEvent.CREATED);
+    }
+
+    @Test
+    void 다른_사용자의_증거를_연결하면_FORBIDDEN_예외가_발생한다() {
+        when(reportEvidenceRepository.findAllById(any())).thenReturn(List.of(
+                ReportEvidence.builder().userId(1L).fileUrl("/uploads/a.png").build(),
+                ReportEvidence.builder().userId(2L).fileUrl("/uploads/b.png").build()));
+
+        assertThatThrownBy(() -> reportService.createReport(1L, sampleRequest()))
+                .isInstanceOf(SignalException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
+    void 존재하지_않는_증거를_연결하면_NOT_FOUND_예외가_발생한다() {
+        when(reportEvidenceRepository.findAllById(any())).thenReturn(List.of(
+                ReportEvidence.builder().userId(1L).fileUrl("/uploads/a.png").build()));
+
+        assertThatThrownBy(() -> reportService.createReport(1L, sampleRequest()))
+                .isInstanceOf(SignalException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.NOT_FOUND);
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
+    void 수정시에도_다른_사용자의_증거를_연결하면_FORBIDDEN_예외가_발생한다() {
+        Report report = Report.builder()
+                .userId(1L).description("설명").sourceUrls(List.of("https://a")).evidenceIds(List.of())
+                .documentUrl("https://stub/draft.pdf").build();
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
+        when(reportEvidenceRepository.findAllById(any())).thenReturn(List.of(
+                ReportEvidence.builder().userId(2L).fileUrl("/uploads/b.png").build()));
+
+        UpdateReportRequest request = new UpdateReportRequest(null, null, null, null, null, List.of(99L), null);
+
+        assertThatThrownBy(() -> reportService.updateReport(1L, 1L, request))
+                .isInstanceOf(SignalException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.FORBIDDEN);
     }
 
     @Test
