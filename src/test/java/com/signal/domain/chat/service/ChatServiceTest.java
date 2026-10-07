@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.signal.domain.chat.dto.response.ChatSummaryResponse;
@@ -53,6 +54,15 @@ class ChatServiceTest {
     @BeforeEach
     void setUp() {
         chatService = new ChatService(chatSessionRepository, chatMessageRepository, reportRepository, chatEngine);
+    }
+
+    @Test
+    void 비로그인으로_내_세션_목록을_조회하면_UNAUTHORIZED이고_저장소를_조회하지_않는다() {
+        assertThatThrownBy(() -> chatService.getMySessions(null))
+                .isInstanceOfSatisfying(SignalException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+
+        verifyNoInteractions(chatSessionRepository);
     }
 
     @Test

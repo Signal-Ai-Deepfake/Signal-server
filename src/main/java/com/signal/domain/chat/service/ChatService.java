@@ -132,6 +132,10 @@ public class ChatService {
     }
 
     public List<ChatSession> getMySessions(Long userId) {
+        // userId가 null이면 파생 쿼리가 user_id IS NULL로 바뀌어 모든 익명 세션이 조회된다.
+        if (userId == null) {
+            throw new SignalException(ErrorCode.UNAUTHORIZED);
+        }
         return chatSessionRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 

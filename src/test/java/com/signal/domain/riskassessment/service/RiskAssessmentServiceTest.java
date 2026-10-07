@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.signal.domain.riskassessment.analyzer.RiskAnalysisResult;
@@ -44,6 +45,15 @@ class RiskAssessmentServiceTest {
     @BeforeEach
     void setUp() {
         riskAssessmentService = new RiskAssessmentService(riskAssessmentRepository, riskAnalyzer, fileStorage);
+    }
+
+    @Test
+    void 비로그인으로_내_분석_목록을_조회하면_UNAUTHORIZED이고_저장소를_조회하지_않는다() {
+        assertThatThrownBy(() -> riskAssessmentService.getMyAssessments(null))
+                .isInstanceOfSatisfying(SignalException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+
+        verifyNoInteractions(riskAssessmentRepository);
     }
 
     @Test
