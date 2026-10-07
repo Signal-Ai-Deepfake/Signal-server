@@ -43,6 +43,7 @@ public class VerificationService {
 
     /** 인증번호 생성·저장 후 메일 발송. 유효시간(초) 반환 */
     public long sendCode(String email, Purpose purpose) {
+        purgeExpired();
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
         codes.put(key(email, purpose), new CodeEntry(code, now() + codeExpiration, 0));
         mailService.sendVerificationCode(email, code);
@@ -88,6 +89,13 @@ public class VerificationService {
         if (!tokens.remove(token, entry)) {
             throw new SignalException(ErrorCode.INVALID_VERIFICATION);
         }
+    }
+
+    /** 확인되지 않고 방치된 인증번호/토큰이 인메모리 맵에 영구히 쌓이지 않도록 만료분을 정리한다. */
+    private void purgeExpired() {
+        long now = now();
+        codes.values().removeIf(entry -> now > entry.expiresAt());
+        tokens.values().removeIf(entry -> now > entry.expiresAt());
     }
 
     /** 실패 횟수가 한도에 도달하면 인증번호를 폐기해 재발송 없이는 더 시도할 수 없게 한다. */

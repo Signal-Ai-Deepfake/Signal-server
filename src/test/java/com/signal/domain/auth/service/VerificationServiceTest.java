@@ -11,6 +11,7 @@ import com.signal.domain.auth.service.VerificationService.Purpose;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
 import com.signal.global.mail.MailService;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -112,5 +113,18 @@ class VerificationServiceTest {
         assertErrorCode(() -> verificationService.consumeToken(token, EMAIL, Purpose.PASSWORD_RESET),
                 ErrorCode.INVALID_VERIFICATION);
         verificationService.consumeToken(token, EMAIL, Purpose.SIGNUP);
+    }
+
+    @Test
+    void 인증번호를_발송하면_만료된_인증번호와_토큰이_정리된다() {
+        verificationService.sendCode("old@example.com", Purpose.SIGNUP);
+        ReflectionTestUtils.setField(verificationService, "codeExpiration", -1L);
+        verificationService.sendCode("old2@example.com", Purpose.SIGNUP);
+        ReflectionTestUtils.setField(verificationService, "codeExpiration", 300_000L);
+
+        verificationService.sendCode(EMAIL, Purpose.SIGNUP);
+
+        Map<String, ?> codes = (Map<String, ?>) ReflectionTestUtils.getField(verificationService, "codes");
+        assertThat(codes).hasSize(2).containsKey("SIGNUP:" + EMAIL).containsKey("SIGNUP:old@example.com");
     }
 }
