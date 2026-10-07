@@ -60,4 +60,20 @@ class LocalFileStorageTest {
 
         assertThat(loaded).containsExactly(1, 2, 3);
     }
+
+    @Test
+    void 확장자에_경로_구분자가_섞인_파일명은_확장자를_버리고_지정한_디렉토리에_저장된다() throws Exception {
+        LocalFileStorage storage = new LocalFileStorage(tempDir.toString(), "/uploads");
+        storage.init();
+
+        String url = storage.store(new byte[]{1}, "evil.png/../../x", "profile");
+        String url2 = storage.store(new byte[]{1}, "evil.p\\ng", "profile");
+
+        assertThat(url).matches("^/uploads/profile/[0-9a-fA-F-]{36}$");
+        assertThat(url2).matches("^/uploads/profile/[0-9a-fA-F-]{36}$");
+        try (var files = Files.walk(tempDir)) {
+            assertThat(files.filter(Files::isRegularFile).map(f -> f.getParent()))
+                    .containsOnly(tempDir.resolve("profile"));
+        }
+    }
 }
