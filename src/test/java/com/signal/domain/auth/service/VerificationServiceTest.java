@@ -3,8 +3,10 @@ package com.signal.domain.auth.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentCaptor.forClass;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.signal.domain.auth.service.VerificationService.Purpose;
@@ -126,5 +128,15 @@ class VerificationServiceTest {
 
         Map<String, ?> codes = (Map<String, ?>) ReflectionTestUtils.getField(verificationService, "codes");
         assertThat(codes).hasSize(2).containsKey("SIGNUP:" + EMAIL).containsKey("SIGNUP:old@example.com");
+    }
+
+    @Test
+    void 같은_이메일로_짧은_간격에_인증번호를_다시_요청하면_거부하고_메일을_보내지_않는다() {
+        verificationService.sendCode(EMAIL, Purpose.SIGNUP);
+
+        assertErrorCode(() -> verificationService.sendCode(EMAIL, Purpose.SIGNUP),
+                ErrorCode.VERIFICATION_TOO_FREQUENT);
+
+        verify(mailService, times(1)).sendVerificationCode(eq(EMAIL), anyString());
     }
 }
