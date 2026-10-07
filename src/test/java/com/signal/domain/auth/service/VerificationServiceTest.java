@@ -90,4 +90,27 @@ class VerificationServiceTest {
 
         assertErrorCode(() -> verificationService.verifyCode(EMAIL, code, Purpose.SIGNUP), ErrorCode.CODE_EXPIRED);
     }
+
+    @Test
+    void verificationToken은_한_번만_소모할_수_있다() {
+        String code = sendAndCaptureCode(Purpose.SIGNUP);
+        String token = verificationService.verifyCode(EMAIL, code, Purpose.SIGNUP);
+
+        verificationService.consumeToken(token, EMAIL, Purpose.SIGNUP);
+
+        assertErrorCode(() -> verificationService.consumeToken(token, EMAIL, Purpose.SIGNUP),
+                ErrorCode.INVALID_VERIFICATION);
+    }
+
+    @Test
+    void verificationToken은_발급받은_이메일과_용도에서만_사용할_수_있다() {
+        String code = sendAndCaptureCode(Purpose.SIGNUP);
+        String token = verificationService.verifyCode(EMAIL, code, Purpose.SIGNUP);
+
+        assertErrorCode(() -> verificationService.consumeToken(token, "other@example.com", Purpose.SIGNUP),
+                ErrorCode.INVALID_VERIFICATION);
+        assertErrorCode(() -> verificationService.consumeToken(token, EMAIL, Purpose.PASSWORD_RESET),
+                ErrorCode.INVALID_VERIFICATION);
+        verificationService.consumeToken(token, EMAIL, Purpose.SIGNUP);
+    }
 }

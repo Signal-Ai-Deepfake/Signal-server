@@ -84,7 +84,10 @@ public class VerificationService {
             throw new SignalException(ErrorCode.INVALID_VERIFICATION);
         }
 
-        tokens.remove(token);
+        // get과 remove 사이에 다른 요청이 끼어들어도 1회용이 보장되도록 제거에 성공한 요청만 통과시킨다.
+        if (!tokens.remove(token, entry)) {
+            throw new SignalException(ErrorCode.INVALID_VERIFICATION);
+        }
     }
 
     /** 실패 횟수가 한도에 도달하면 인증번호를 폐기해 재발송 없이는 더 시도할 수 없게 한다. */
