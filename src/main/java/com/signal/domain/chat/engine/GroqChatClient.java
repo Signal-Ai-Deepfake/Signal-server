@@ -61,6 +61,17 @@ public class GroqChatClient implements ChatCompletionClient {
 
     @Override
     public String complete(String userMessage, SituationType situationType, List<ChatTurn> history) {
+        return request(0.7, buildMessages(userMessage, situationType, history));
+    }
+
+    @Override
+    public String completeJson(String systemPrompt, String userPrompt) {
+        return request(0.0, List.of(
+                Map.of("role", "system", "content", systemPrompt),
+                Map.of("role", "user", "content", userPrompt)));
+    }
+
+    private String request(double temperature, List<Map<String, Object>> messages) {
         if (!StringUtils.hasText(apiKey)) {
             throw new IllegalStateException("GROQ_API_KEY가 설정되지 않았습니다.");
         }
@@ -68,8 +79,8 @@ public class GroqChatClient implements ChatCompletionClient {
         Map<String, Object> requestBody = Map.of(
                 "model", model,
                 "max_completion_tokens", maxCompletionTokens,
-                "temperature", 0.7,
-                "messages", buildMessages(userMessage, situationType, history));
+                "temperature", temperature,
+                "messages", messages);
 
         GroqChatResponse response = restClient.post()
                 .uri("/chat/completions")

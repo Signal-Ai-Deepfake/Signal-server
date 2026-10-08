@@ -5,6 +5,9 @@ spring:
   profiles:
     active: local
 
+  flyway:
+    enabled: false   # local/test는 ddl-auto로 스키마를 만들므로 Flyway는 prod에서만 사용
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -107,6 +110,11 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true   # 기존 운영 DB(Hibernate로 생성됨)는 V1을 기준선으로 보고 V2부터 적용
+    baseline-version: 1
 
   jpa:
     hibernate:

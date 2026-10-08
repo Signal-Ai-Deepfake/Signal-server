@@ -12,7 +12,8 @@ public record SendMessageResponse(
         List<String> suggestedActions,
         boolean crisisDetected,
         List<String> recommendedAgencies,
-        boolean sessionEnded
+        boolean sessionEnded,
+        ConsultationProgressResponse progress
 ) {
 
     public static SendMessageResponse from(SendMessageResult result) {
@@ -24,6 +25,7 @@ public record SendMessageResponse(
                 engineResponse.suggestedActions(),
                 engineResponse.crisisDetected(),
                 engineResponse.recommendedAgencies(),
-                result.sessionEnded());
+                result.sessionEnded(),
+                ConsultationProgressResponse.from(result.progress()));
     }
 }

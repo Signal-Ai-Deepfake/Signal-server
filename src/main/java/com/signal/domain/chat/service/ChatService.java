@@ -1,6 +1,7 @@
 package com.signal.domain.chat.service;
 
 import com.signal.domain.chat.dto.response.ChatSummaryResponse;
+import com.signal.domain.chat.dto.response.ConsultationProgressResponse;
 import com.signal.domain.chat.engine.ChatEngine;
 import com.signal.domain.chat.engine.ChatEngineResponse;
 import com.signal.domain.chat.engine.ChatSpeaker;
@@ -10,6 +11,10 @@ import com.signal.domain.chat.entity.ChatMessage;
 import com.signal.domain.chat.entity.ChatRole;
 import com.signal.domain.chat.entity.ChatSession;
 import com.signal.domain.chat.repository.ChatMessageRepository;
+import com.signal.domain.chat.progress.ConsultationProgress;
+import com.signal.domain.chat.progress.ConsultationProgressStatus;
+import com.signal.domain.chat.progress.ConsultationProgressTracker;
+import com.signal.domain.chat.progress.StageFacts;
 import com.signal.domain.chat.repository.ChatSessionRepository;
 import com.signal.domain.report.entity.Report;
 import com.signal.domain.report.entity.ReportStatus;
@@ -31,8 +36,6 @@ import org.springframework.util.StringUtils;
 public class ChatService {
 
     private static final long ANONYMOUS_CHAT_SESSION_LIMIT = 5;
-    private static final int PROGRESS_STAGE_COUNT = 6;
-    private static final int PROGRESS_STAGE_WEIGHT = 16;
     private static final int MAX_HISTORY_MESSAGES = 10;   // LLM에 넘길 이전 대화 최대 개수 (토큰 사용량 상한)
     private static final Pattern URL_PATTERN = Pattern.compile("https?://\\S+", Pattern.CASE_INSENSITIVE);
     private static final List<String> END_CONFIRM_KEYWORDS = List.of(
@@ -45,6 +48,7 @@ public class ChatService {
     private final ChatMessageRepository chatMessageRepository;
     private final ReportRepository reportRepository;
     private final ChatEngine chatEngine;
+    private final ConsultationProgressTracker progressTracker;
 
     @Transactional
     public ChatSession createSession(Long userId, String anonymousId, boolean saveConsent) {
@@ -85,7 +89,9 @@ public class ChatService {
                 .content(engineResponse.reply())
                 .build());
 
-        return new SendMessageResult(botMessage, engineResponse, session.isSessionEnded());
+        return new SendMessageResult(
+                botMessage, engineResponse, session.isSessionEnded(),
+                ConsultationProgress.from(session.getStageSnapshot()));
     }
 
     private List<ChatTurn> buildHistory(Long chatSessionId) {
@@ -114,8 +120,20 @@ public class ChatService {
         session.recordEngineResult(engineResponse.situationType(), engineResponse.crisisDetected(), agenciesGiven);
 
         List<Report> reports = myReports(userId);
-        boolean progressComplete = calculateProgressPercent(
-                session, !reports.isEmpty(), hasFinalizedReport(reports)) >= PROGRESS_STAGE_COUNT * PROGRESS_STAGE_WEIGHT;
+        List<ChatTurn> turns = new ArrayList<>(history);
+        turns.add(new ChatTurn(ChatSpeaker.USER, content));
+        turns.add(new ChatTurn(ChatSpeaker.BOT, engineResponse.reply()));
+        session.updateStageSnapshot(progressTracker.update(
+                session.getStageSnapshot(), engineResponse.situationType(), turns,
+                new StageFacts(
+                        engineResponse.crisisDetected(),
+                        session.isEmotionallyStabilized(),
+                        session.isEvidenceUrlMentioned(),
+                        !reports.isEmpty(),
+                        hasFinalizedReport(reports),
+                        session.isAgenciesRecommended())));
+        boolean progressComplete =
+                ConsultationProgress.from(session.getStageSnapshot()).status() == ConsultationProgressStatus.COMPLETED;
         if (!session.isSessionEnded() && !session.isAwaitingEndConfirmation() && progressComplete) {
             session.markAwaitingEndConfirmation();
             return new ChatEngineResponse(
@@ -148,16 +166,15 @@ public class ChatService {
         List<Report> reports = myReports(userId);
         boolean reportFinalized = hasFinalizedReport(reports);
 
-        int progressPercent = session.isSessionEnded()
-                ? 100
-                : calculateProgressPercent(session, !reports.isEmpty(), reportFinalized);
+        ConsultationProgress progress = ConsultationProgress.from(session.getStageSnapshot());
 
         return new ChatSummaryResponse(
                 describeSituation(session),
                 recommendedSteps(session, reportFinalized),
                 riskLevel(session),
                 riskDescription(session),
-                progressPercent);
+                progress.progressPercent(),
+                ConsultationProgressResponse.from(progress));
     }
 
     private List<Report> myReports(Long userId) {
@@ -166,30 +183,6 @@ public class ChatService {
 
     private boolean hasFinalizedReport(List<Report> reports) {
         return reports.stream().anyMatch(report -> report.getStatus() == ReportStatus.FINALIZED);
-    }
-
-    private int calculateProgressPercent(ChatSession session, boolean reportStarted, boolean reportFinalized) {
-        int completed = 0;
-        if (session.getLastSituationType() != null) {
-            completed++;
-        }
-        if (session.isEmotionallyStabilized()) {
-            completed++;
-        }
-        if (session.isEvidenceUrlMentioned()) {
-            completed++;
-        }
-        if (reportStarted) {
-            completed++;
-        }
-        if (reportFinalized) {
-            completed++;
-        }
-        if (session.isAgenciesRecommended()) {
-            completed++;
-        }
-
-        return Math.min(completed, PROGRESS_STAGE_COUNT) * PROGRESS_STAGE_WEIGHT;
     }
 
     private String describeSituation(ChatSession session) {
