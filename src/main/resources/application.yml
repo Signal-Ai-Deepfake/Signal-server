@@ -117,5 +117,6 @@ spring:
     baseline-version: 1
 
   jpa:
+    defer-datasource-initialization: false   # true면 Flyway와 entityManagerFactory가 순환 의존해 기동 실패. 운영 DB는 테이블이 이미 있어 data.sql을 먼저 실행해도 안전
     hibernate:
       ddl-auto: validate
