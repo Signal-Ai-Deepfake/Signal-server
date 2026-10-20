@@ -3,12 +3,18 @@ package com.signal.domain.protection.protector;
 import com.signal.domain.protection.entity.ProtectionLevel;
 import com.signal.domain.protection.repository.ProtectionRepository;
 import com.signal.global.file.FileStorage;
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.exif.ExifIFD0Directory;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.SecureRandom;
+import java.util.Iterator;
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
@@ -16,7 +22,8 @@ import org.springframework.stereotype.Component;
 /**
  * 서버에서 직접 이미지에 픽셀 노이즈를 삽입해 보호 이미지를 만드는 구현체.
  * 2x2 블록 단위로 상관된 노이즈를 RGB 채널에 더해, 단순 재업로드·재압축·축소 후에도 일부가 남도록 한다.
- * 알파 채널은 건드리지 않으며 결과는 무손실 PNG로 저장한다.
+ * 알파 채널은 건드리지 않으며 결과는 무손실 PNG로 저장한다. PNG로 재인코딩하면 EXIF가 사라지므로(GPS 등
+ * 메타데이터 제거 효과) EXIF 회전 방향은 픽셀에 미리 반영해 사진이 돌아가 보이지 않게 한다.
  *
  * 주의: 이는 학습된 모델을 겨냥해 최적화한 적대적 섭동(adversarial perturbation)이 아니라 일반 노이즈
  * 삽입이다. 도용·합성 방지를 보장하지 않으며, 모델 기반 적대적 보호는 별도 엔진 연동이 필요하다.
@@ -30,6 +37,7 @@ public class NoiseImageProtector implements ImageProtector {
 
     private static final String PROTECTED_IMAGE_DIRECTORY = "protections";
     private static final int BLOCK_SIZE = 2;
+    private static final long MAX_PIXELS = 50_000_000L;
 
     private final FileStorage fileStorage;
     private final ProtectionRepository protectionRepository;
@@ -45,10 +53,7 @@ public class NoiseImageProtector implements ImageProtector {
     public void protect(Long protectionId, String originalImageUrl, ProtectionLevel protectionLevel) {
         try {
             byte[] originalBytes = fileStorage.load(originalImageUrl);
-            BufferedImage original = ImageIO.read(new ByteArrayInputStream(originalBytes));
-            if (original == null) {
-                throw new IOException("이미지로 해석할 수 없는 파일입니다.");
-            }
+            BufferedImage original = ImageOrientation.apply(readImage(originalBytes), readOrientation(originalBytes));
 
             ProtectedImage result = addNoise(original, amplitude(protectionLevel));
             String protectedImageUrl = fileStorage.store(result.png(), "protected.png", PROTECTED_IMAGE_DIRECTORY);
@@ -58,6 +63,39 @@ public class NoiseImageProtector implements ImageProtector {
             log.error("이미지 보호 처리 실패: protectionId={}", protectionId, e);
             markFailed(protectionId);
         }
+    }
+
+    private BufferedImage readImage(byte[] bytes) throws IOException {
+        try (ImageInputStream input = ImageIO.createImageInputStream(new ByteArrayInputStream(bytes))) {
+            Iterator<ImageReader> readers = input == null ? null : ImageIO.getImageReaders(input);
+            if (readers == null || !readers.hasNext()) {
+                throw new IOException("이미지로 해석할 수 없는 파일입니다.");
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(input);
+                long pixels = (long) reader.getWidth(0) * reader.getHeight(0);
+                if (pixels > MAX_PIXELS) {
+                    throw new IOException("보호 처리 가능한 해상도를 초과했습니다: " + pixels + "px");
+                }
+                return reader.read(0);
+            } finally {
+                reader.dispose();
+            }
+        }
+    }
+
+    private int readOrientation(byte[] bytes) {
+        try {
+            Metadata metadata = ImageMetadataReader.readMetadata(new ByteArrayInputStream(bytes));
+            ExifIFD0Directory directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+            if (directory != null && directory.containsTag(ExifIFD0Directory.TAG_ORIENTATION)) {
+                return directory.getInt(ExifIFD0Directory.TAG_ORIENTATION);
+            }
+        } catch (Exception e) {
+            // EXIF가 없거나 판독 불가하면 회전 없음으로 간주한다.
+        }
+        return 1;
     }
 
     ProtectedImage addNoise(BufferedImage original, int amplitude) throws IOException {
