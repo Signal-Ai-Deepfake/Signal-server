@@ -27,6 +27,7 @@ public enum ErrorCode {
     INVALID_REFRESH_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 리프레시 토큰입니다."),
     INVALID_VERIFICATION(HttpStatus.UNAUTHORIZED, "인증 토큰이 유효하지 않습니다."),
     PASSWORD_MISMATCH(HttpStatus.BAD_REQUEST, "비밀번호가 일치하지 않습니다."),
+    VERIFICATION_TOO_FREQUENT(HttpStatus.TOO_MANY_REQUESTS, "인증번호는 잠시 후 다시 요청할 수 있습니다."),
 
     // AI 분석
     FACE_NOT_DETECTED(HttpStatus.UNPROCESSABLE_ENTITY, "얼굴을 검출하지 못했습니다."),

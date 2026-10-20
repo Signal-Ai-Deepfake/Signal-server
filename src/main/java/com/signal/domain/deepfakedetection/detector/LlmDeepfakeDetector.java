@@ -47,6 +47,12 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
             중요:
             - 당신은 전문 딥페이크 탐지 모델이 아니라 범용 비전 언어 모델입니다. 확신이 없으면 SUSPICIOUS로
               판단하고, 근거가 명확하지 않은데 FAKE로 단정하지 마세요.
+            - verdict/confidence/riskScore를 먼저 정하고, evidences는 반드시 그 판단과 앞뒤가 맞아야
+              합니다. verdict가 REAL이거나 riskScore가 30 미만이면 evidences는 반드시 빈 배열로
+              답하세요. "눈 깜빡임", "조명", "압축 아티팩트" 같은 항목을 하나씩 형식적으로 채우려고
+              사소하거나 애매한 특징을 근거처럼 서술하지 마세요 — 실제로 합성·조작을 의심할 만큼
+              뚜렷한 흔적이 있을 때만, 그리고 그 근거가 verdict/riskScore를 실제로 뒷받침할 때만
+              evidences에 담으세요.
             - 아래 JSON 형식으로만 답하세요. 코드블록이나 다른 설명 없이 순수 JSON만 출력하세요.
 
             {
@@ -111,7 +117,9 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
             List<Evidence> evidences = toEvidences(parsed.evidences(), pixelSize);
             String highlightedResultUrl = fileStorage.store(content, "highlighted.png", HIGHLIGHTED_RESULT_DIRECTORY);
 
-            fallbackDetector.markCompleted(detectionId, verdict, confidence, riskScore, evidences, highlightedResultUrl);
+            // 실제 비전 LLM 응답을 그대로 반영하는 경로이므로 fallbackUsed는 false.
+            fallbackDetector.markCompleted(
+                    detectionId, verdict, confidence, riskScore, evidences, highlightedResultUrl, false);
         } catch (Exception e) {
             log.warn("LLM 딥페이크 탐지 실패, 룰 기반 탐지로 대체합니다: detectionId={}", detectionId, e);
             fallbackDetector.detect(detectionId, fileUrl, isVideo);

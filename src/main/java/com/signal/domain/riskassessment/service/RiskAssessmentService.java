@@ -54,6 +54,7 @@ public class RiskAssessmentService {
                 .factors(result.factors())
                 .recommendations(result.recommendations())
                 .faces(result.faces())
+                .fallbackUsed(result.fallbackUsed())
                 .build();
 
         return riskAssessmentRepository.save(riskAssessment);
@@ -71,6 +72,10 @@ public class RiskAssessmentService {
     }
 
     public List<RiskAssessment> getMyAssessments(Long userId) {
+        // userId가 null이면 파생 쿼리가 user_id IS NULL로 바뀌어 모든 익명 분석 결과가 조회된다.
+        if (userId == null) {
+            throw new SignalException(ErrorCode.UNAUTHORIZED);
+        }
         return riskAssessmentRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 

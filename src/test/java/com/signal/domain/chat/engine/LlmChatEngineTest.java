@@ -39,12 +39,16 @@ class LlmChatEngineTest {
         List<ChatTurn> history = List.of(
                 new ChatTurn(ChatSpeaker.USER, "제 사진이 유포된 것 같아요"),
                 new ChatTurn(ChatSpeaker.BOT, "많이 놀라셨겠어요. 어디에 유포됐는지 아시나요?"));
-        when(chatCompletionClient.complete(eq("인스타그램에요"), eq(SituationType.IMAGE_ABUSE), eq(history)))
+        // situationType은 RuleBasedChatEngine이 이번 메시지만으로 판정한다.
+        // "인스타그램에요"에는 피해 키워드가 없으므로 GENERAL이며, history는 분류가 아니라
+        // LLM 호출 인자로만 전달된다(이 테스트가 확인하려는 지점).
+        when(chatCompletionClient.complete(eq("인스타그램에요"), eq(SituationType.GENERAL), eq(history)))
                 .thenReturn("인스타그램이군요. 신고 절차를 안내해드릴게요.");
 
         ChatEngineResponse response = engine.respond("인스타그램에요", history);
 
         assertThat(response.reply()).isEqualTo("인스타그램이군요. 신고 절차를 안내해드릴게요.");
+        verify(chatCompletionClient).complete("인스타그램에요", SituationType.GENERAL, history);
     }
 
     @Test

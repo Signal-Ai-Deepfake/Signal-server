@@ -3,8 +3,8 @@
 Signal의 "이미지 보호 처리(노이즈 삽입)" 기능을 실제로 구현해 보는 **실험용** 코드입니다.
 
 > **상태: 실험 구현, Signal 서비스에는 연결되어 있지 않습니다.**
-> 서비스(`Signal-server`)는 현재 `StubImageProtector`(원본을 그대로 복사하는 임시 구현)를 사용합니다.
-> 이 폴더의 코드는 그 자리를 대체할 수 있는 형태(HTTP 서비스)로 만들었지만, 연동과 운영 검증은 하지 않았습니다.
+> 서비스(`Signal-server`)는 기본적으로 `NoiseImageProtector`(서버 내 일반 픽셀 노이즈 삽입, 모델을 겨냥한 적대적 노이즈는 아님)를 사용합니다.
+> 이 폴더의 코드는 `PROTECTION_MODE=http`로 선택할 수 있는 모델 겨냥 적대적 노이즈 엔진이며, 운영 검증은 하지 않았습니다.
 
 ## 무엇을 하나
 사진에 **눈에 거의 안 보이는 적대적 노이즈**를 더합니다 (PhotoGuard의 encoder attack을 단순화).
@@ -45,11 +45,11 @@ pytest -q
 **테스트에는 본인 사진이나 공개 샘플만 사용하고, 타인의 사진은 쓰지 마세요.**
 
 ## 서비스에 연결 (Signal-server)
-`HttpImageProtector`(서버 코드)가 이 서비스의 `POST /protect`를 호출합니다. **기본값은 여전히 스텁**이고, 아래 설정을 켜야 동작합니다.
+`HttpImageProtector`(서버 코드)가 이 서비스의 `POST /protect`를 호출합니다. **기본값은 `noise`(NoiseImageProtector)**이고, 아래 설정을 켜야 동작합니다.
 
 | 환경 변수 | 기본값 | 설명 |
 |---|---|---|
-| `PROTECTION_MODE` | `stub` | `http`로 바꾸면 이 서비스를 호출 |
+| `PROTECTION_MODE` | `noise` | `http`로 바꾸면 이 서비스를 호출 |
 | `PROTECTION_API_URL` | `http://localhost:8000` (compose에서는 `http://protection:8000`) | 보호 서비스 주소 |
 | `PROTECTION_API_TIMEOUT_SECONDS` | `300` | CPU에서는 수 분이 걸릴 수 있음 |
 
@@ -61,7 +61,7 @@ PROTECTION_MODE=http ./gradlew bootRun
 # 배포(docker compose)
 PROTECTION_MODE=http docker compose --profile protection up -d --build
 ```
-- 실패(연결 불가, 타임아웃, 비정상 응답)하면 스텁으로 조용히 대체하지 않고 해당 보호 요청이 `FAILED`로 저장됩니다.
+- 실패(연결 불가, 타임아웃, 비정상 응답)하면 NoiseImageProtector로 조용히 대체하지 않고 해당 보호 요청이 `FAILED`로 저장됩니다.
 - `visualDifference`는 응답 헤더 `X-PSNR-dB`를 `10^(-PSNR/20)`(0~1)로 환산한 값입니다. 예: 40dB → 0.010.
 - PyTorch가 필요해 이미지가 큽니다(약 2GB+). 서버 인스턴스 메모리가 부족하면 별도 머신에 두고 `PROTECTION_API_URL`만 바꾸세요.
 - 이 Dockerfile과 compose 설정은 작성만 했고 빌드·기동 검증은 하지 않았습니다.

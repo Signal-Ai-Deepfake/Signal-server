@@ -18,4 +18,11 @@ public interface ChatCompletionClient {
      * @throws RuntimeException API 키 미설정, 네트워크 오류, 타임아웃, 빈 응답 등 실패 시 (호출부에서 폴백 처리)
      */
     String complete(String userMessage, SituationType situationType, List<ChatTurn> history);
+
+    /**
+     * 시스템/사용자 프롬프트를 그대로 넘겨 구조화(JSON) 응답 텍스트를 받는다. 챗봇 페르소나 프롬프트를 쓰지 않는다.
+     *
+     * @throws RuntimeException API 키 미설정, 네트워크 오류, 타임아웃, 빈 응답 등 실패 시
+     */
+    String completeJson(String systemPrompt, String userPrompt);
 }

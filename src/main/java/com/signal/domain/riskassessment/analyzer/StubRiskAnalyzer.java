@@ -28,10 +28,8 @@ public class StubRiskAnalyzer implements RiskAnalyzer {
     public RiskAnalysisResult analyze(MultipartFile image) {
         int seed = Math.abs(contentHash(image));
 
-        if (seed % 10 == 0) {
-            return RiskAnalysisResult.faceNotDetected();
-        }
-
+        // 폴백은 실제로 얼굴을 검출하지 못하므로 "얼굴 없음"으로 단정하지 않는다(과거에는 해시 기반으로
+        // 10%의 이미지를 얼굴 없음으로 거절해, 얼굴이 선명한 사진도 분석이 실패했다).
         int overallScore = seed % 101;
         RiskLevel overallRiskLevel = RiskLevel.fromScore(overallScore);
 
@@ -41,7 +39,8 @@ public class StubRiskAnalyzer implements RiskAnalyzer {
                 overallScore,
                 buildFactors(seed),
                 buildRecommendations(overallRiskLevel),
-                List.of(buildFace(seed)));
+                List.of(buildFace(seed)),
+                true);
     }
 
     private List<RiskFactor> buildFactors(int seed) {

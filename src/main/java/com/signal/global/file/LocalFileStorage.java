@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,8 @@ import org.springframework.web.multipart.MultipartFile;
 @Slf4j
 @Component
 public class LocalFileStorage implements FileStorage {
+
+    private static final Pattern SAFE_EXTENSION = Pattern.compile("\\.[A-Za-z0-9]{1,10}");
 
     private final Path rootDir;
     private final String baseUrl;
@@ -71,6 +74,10 @@ public class LocalFileStorage implements FileStorage {
     public byte[] load(String url) {
         String relativePath = url.startsWith(baseUrl + "/") ? url.substring(baseUrl.length() + 1) : url;
         Path target = rootDir.resolve(relativePath).normalize();
+        if (!target.startsWith(rootDir)) {
+            log.error("업로드 디렉토리 밖의 파일 접근 시도: {}", url);
+            throw new SignalException(ErrorCode.NOT_FOUND);
+        }
 
         try {
             return Files.readAllBytes(target);
@@ -81,7 +88,11 @@ public class LocalFileStorage implements FileStorage {
     }
 
     private Path resolveTarget(String directory, String filename) {
-        return rootDir.resolve(directory).normalize().resolve(filename);
+        Path target = rootDir.resolve(directory).normalize().resolve(filename).normalize();
+        if (!target.startsWith(rootDir)) {
+            throw new SignalException(ErrorCode.INVALID_INPUT);
+        }
+        return target;
     }
 
     private String toUrl(String directory, String filename) {
@@ -93,6 +104,11 @@ public class LocalFileStorage implements FileStorage {
             return "";
         }
         int dotIndex = originalFilename.lastIndexOf('.');
-        return dotIndex >= 0 ? originalFilename.substring(dotIndex) : "";
+        if (dotIndex < 0) {
+            return "";
+        }
+        // 확장자는 사용자 입력이므로 경로 구분자 등이 섞이지 않도록 영숫자만 허용한다.
+        String extension = originalFilename.substring(dotIndex);
+        return SAFE_EXTENSION.matcher(extension).matches() ? extension : "";
     }
 }

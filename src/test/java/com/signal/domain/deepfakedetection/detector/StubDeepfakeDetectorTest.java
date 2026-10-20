@@ -54,6 +54,7 @@ class StubDeepfakeDetectorTest {
         assertThat(detection.getRiskScore()).isBetween(0, 100);
         assertThat(detection.getEvidences()).isNotEmpty();
         assertThat(detection.getHighlightedResultUrl()).isEqualTo("/uploads/deepfake-detections/highlighted.png");
+        assertThat(detection.getFallbackUsed()).isTrue();
         org.mockito.Mockito.verify(deepfakeDetectionRepository).save(detection);
     }
 

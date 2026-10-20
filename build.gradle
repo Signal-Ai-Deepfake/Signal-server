@@ -40,6 +40,8 @@ dependencies {
 
     // DB
     runtimeOnly 'com.mysql:mysql-connector-j'
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-mysql'
 
     // 이미지 EXIF 메타데이터(GPS 등) 판독 - 위험도 분석의 메타데이터 노출 항목에 사용
     implementation 'com.drewnoakes:metadata-extractor:2.21.0'

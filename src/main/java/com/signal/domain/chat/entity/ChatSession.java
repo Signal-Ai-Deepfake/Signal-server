@@ -1,7 +1,9 @@
 package com.signal.domain.chat.entity;
 
 import com.signal.domain.chat.engine.SituationType;
+import com.signal.domain.chat.progress.StageSnapshot;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -56,6 +58,10 @@ public class ChatSession {
     @Column(nullable = false)
     private boolean agenciesRecommended;
 
+    @Column(columnDefinition = "TEXT")
+    @Convert(converter = StageSnapshotConverter.class)
+    private StageSnapshot stageSnapshot;
+
     @Column(nullable = false)
     private boolean awaitingEndConfirmation;
 
@@ -102,6 +108,10 @@ public class ChatSession {
         if (agenciesGiven) {
             this.agenciesRecommended = true;
         }
+    }
+
+    public void updateStageSnapshot(StageSnapshot stageSnapshot) {
+        this.stageSnapshot = stageSnapshot;
     }
 
     public void markEvidenceUrlMentioned() {

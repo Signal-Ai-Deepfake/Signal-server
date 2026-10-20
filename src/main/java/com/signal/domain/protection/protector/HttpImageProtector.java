@@ -19,9 +19,9 @@ import org.springframework.web.client.RestClient;
 
 /**
  * protection-lab(FastAPI) 서비스의 {@code POST /protect}를 호출해 실제 적대적 노이즈를 삽입하는 구현체.
- * {@code protection.mode=http} 일 때만 활성화되며, 기본값(stub)에서는 {@link StubImageProtector}가 사용된다.
+ * {@code protection.mode=http} 일 때만 활성화되며, 기본값(noise)에서는 {@link NoiseImageProtector}가 사용된다.
  *
- * 실패 시(연결 불가, 타임아웃, 비정상 응답) 스텁으로 조용히 대체하지 않고 Protection을 FAILED로 표시한다.
+ * 실패 시(연결 불가, 타임아웃, 비정상 응답) NoiseImageProtector로 조용히 대체하지 않고 Protection을 FAILED로 표시한다.
  * visualDifference는 응답 헤더 X-PSNR-dB를 RMSE 비율(10^(-PSNR/20), 0~1)로 환산한 값이다.
  */
 @Slf4j

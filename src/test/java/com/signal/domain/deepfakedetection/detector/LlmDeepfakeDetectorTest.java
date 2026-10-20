@@ -90,6 +90,7 @@ class LlmDeepfakeDetectorTest {
         assertThat(detection.getEvidences()).hasSize(1);
         assertThat(detection.getEvidences().get(0).getFrame()).isNull();
         assertThat(detection.getHighlightedResultUrl()).isEqualTo("/uploads/deepfake-detections/highlighted.png");
+        assertThat(detection.getFallbackUsed()).isFalse();
     }
 
     @Test
@@ -103,6 +104,7 @@ class LlmDeepfakeDetectorTest {
         detector.detect(1L, "/uploads/deepfake-detections/original.mp4", true);
 
         assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.COMPLETED);
+        assertThat(detection.getFallbackUsed()).isTrue();
         verify(visionCompletionClient, never()).complete(any(), any(), any(), any());
     }
 
@@ -120,6 +122,7 @@ class LlmDeepfakeDetectorTest {
 
         assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.COMPLETED);
         assertThat(detection.getVerdict()).isNotNull();
+        assertThat(detection.getFallbackUsed()).isTrue();
     }
 
     @Test
@@ -136,5 +139,6 @@ class LlmDeepfakeDetectorTest {
 
         verify(visionCompletionClient, never()).complete(any(), any(), any(), any());
         assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.COMPLETED);
+        assertThat(detection.getFallbackUsed()).isTrue();
     }
 }

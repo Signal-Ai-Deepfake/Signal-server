@@ -57,6 +57,12 @@ public class DeepfakeDetection {
 
     private String highlightedResultUrl;
 
+    /**
+     * true면 이번 결과가 실제 비전 LLM 응답이 아니라 {@link com.signal.domain.deepfakedetection.detector.StubDeepfakeDetector}의
+     * 파일 해시 기반 결정론적 폴백값이라는 뜻이다 (LLM 미설정/호출·파싱 실패, 영상 입력 등). 완료 전에는 null.
+     */
+    private Boolean fallbackUsed;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -78,13 +84,14 @@ public class DeepfakeDetection {
     }
 
     public void complete(Verdict verdict, double confidence, int riskScore,
-                          List<Evidence> evidences, String highlightedResultUrl) {
+                          List<Evidence> evidences, String highlightedResultUrl, boolean fallbackUsed) {
         this.status = DeepfakeDetectionStatus.COMPLETED;
         this.verdict = verdict;
         this.confidence = confidence;
         this.riskScore = riskScore;
         this.evidences = evidences;
         this.highlightedResultUrl = highlightedResultUrl;
+        this.fallbackUsed = fallbackUsed;
     }
 
     public void fail() {

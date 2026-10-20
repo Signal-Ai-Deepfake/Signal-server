@@ -39,10 +39,60 @@ Signal은 사용자가 SNS에 사진을 올리기 전 위험 요소를 진단하
 | 챗봇 | `LlmChatEngine` | Groq LLM 연동 (일반 대화 답변만 LLM 생성, 위기 감지·추천 행동/기관은 룰 기반, 같은 세션 최근 대화 최대 10개를 맥락으로 함께 전달) |
 | 위험도 분석 | `LlmRiskAnalyzer` | Groq 비전 LLM 연동 (이미지 품질·얼굴 노출도·역검색 위험 추정은 LLM, 메타데이터 노출은 EXIF 직접 판독) |
 | 딥페이크 탐지 | `LlmDeepfakeDetector` | Groq 비전 LLM 연동 (이미지만 지원, 영상은 미지원이라 룰 기반 폴백) |
-| 이미지 보호 처리 | `StubImageProtector` | 미구현 (Stub) — 적대적 노이즈 삽입은 별도 이미지 처리 엔진 필요, LLM 텍스트/비전 API로는 불가능 |
+| 이미지 보호 처리 | `NoiseImageProtector` | 서버에서 직접 픽셀 노이즈 삽입(2x2 블록 상관 노이즈, 수준별 진폭 3/6/12, PNG 저장, 실측 visualDifference). 학습 모델을 겨냥한 적대적 섭동은 아니므로 도용·합성 방지를 보장하지 않음 |
 | 얼굴 모니터링 | `StubFaceMonitor` | 미구현 (Stub) — 역이미지 검색은 LLM으로 불가능, 전문 서비스(예: PimEyes류) API 연동 필요 |
 | 신고 문서 자동 작성 | `StubReportDocumentGenerator` | 미구현 (Stub) — 실제 PDF를 생성하지 않고 가짜 URL만 반환 |
 
 **LLM으로 실제 연동된 3개(챗봇/위험도 분석/딥페이크 탐지)의 공통 원칙**: 기본 제공자는 [Groq](https://console.groq.com)(무료 티어, OpenAI 호환 API, `GROQ_API_KEY` 필요)이며, 안전·정확성이 중요한 부분(위기 감지, 추천 문구, 메타데이터 판독)은 LLM에 맡기지 않고 계속 결정론적 로직이 담당한다. `GROQ_API_KEY` 미설정, `chat.llm.enabled`/`vision.llm.enabled`가 `false`, 또는 API 호출 실패 시 자동으로 룰 기반(Stub) 응답으로 폴백하므로 키 없이도 앱은 정상 동작한다. 관련 설정은 `application.yml`의 `chat.llm.*`, `vision.llm.*` 참고.
 
 **딥페이크 탐지의 정확도에 대한 주의**: `LlmDeepfakeDetector`가 사용하는 비전 LLM은 전문 딥페이크 탐지 모델이 아니라 범용 비전 언어 모델(Qwen 계열)이다. 딥페이크 이진 분류에 특화 학습된 모델이 아니므로, 근거를 그럴듯하게 대면서도 틀릴 수 있다. 기존 해시 기반 가짜 응답보다는 낫지만, 연구/제품 수준의 딥페이크 탐지 정확도를 기대해서는 안 된다.
+
+## 공개 원칙 (AI 모델 · 오픈소스 · 외부 자문)
+
+Signal은 서비스에 사용한 AI 모델, 오픈소스, 개발 과정에서 활용한 AI 도구와 외부 자문을 아래와 같이 공개합니다.
+
+### 서비스에 사용한 AI 모델
+
+| 기능 | 모델 | 제공 | 이용 조건 |
+| --- | --- | --- | --- |
+| 익명 상담 챗봇 응답 생성 | Groq Chat Completions (OpenAI 호환 API) | [GroqCloud](https://console.groq.com) 호스팅 API | GroqCloud 서비스 약관, 무료 티어 사용 |
+| 사진 위험도 분석 / 딥페이크 탐지 | Groq Vision — `qwen/qwen3.6-27b` (Preview) | GroqCloud가 호스팅하는 Qwen 계열 비전 모델 | GroqCloud 서비스 약관, 무료 티어 사용 |
+
+- AI 결과에는 `fallbackUsed` 필드를 포함해, 실제 LLM 분석 결과인지 룰 기반 대체(폴백) 결과인지 사용자에게 공개합니다.
+- 딥페이크 탐지 결과는 범용 모델의 판단이므로 확정 판정이 아닌 **참고 지표**로만 제공합니다.
+- 위기 감지, 추천 행동·기관 안내, 메타데이터 판독은 AI가 아닌 결정론적 룰 기반 로직이 담당합니다.
+
+### 오픈소스
+
+| 구분 | 패키지 | 라이선스 |
+| --- | --- | --- |
+| Backend | Spring Boot 3.4 | Apache-2.0 |
+| Backend | JJWT 0.12.6 | Apache-2.0 |
+| Backend | springdoc-openapi 2.8.4 | Apache-2.0 |
+| Backend | MySQL Connector/J | GPL-2.0 (FOSS 예외 조항 적용) |
+| Backend | metadata-extractor 2.21.0 | Apache-2.0 |
+| Backend | Lombok | MIT |
+| Frontend | Next.js 16 / React 19 | MIT |
+| Frontend | TanStack Query | MIT |
+| Frontend | axios | MIT |
+| Frontend | Tailwind CSS v4 | MIT |
+| Frontend | TypeScript | Apache-2.0 |
+
+### 개발 과정에서 활용한 AI 도구
+
+| 도구 | 용도 |
+| --- | --- |
+| Claude (Anthropic) | README·주차별 산출물·회고 문서 작성 보조 |
+
+AI 도구가 생성한 결과물은 팀원이 직접 검토하고 수정한 뒤 반영했습니다.
+
+### 외부 자문
+
+| 출처 | 내용 |
+| --- | --- |
+| 스타프로젝트 × NAVER OGQ 마켓 코칭 | 주차별 산출물(MVP 범위, 아키텍처, AI 체크리스트, 데모)에 대한 피드백 |
+
+### 데이터 · 보안
+
+- API 키(`GROQ_API_KEY`)는 코드에 포함하지 않고 환경변수로 주입하며, `.env` 등 민감 설정 파일은 저장소에 커밋하지 않습니다.
+- 인증·인가는 JWT + Spring Security로 처리하며, 비로그인 사용자의 딥페이크 탐지는 5회로 제한합니다.

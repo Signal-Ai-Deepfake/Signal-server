@@ -3,6 +3,8 @@ package com.signal.domain.auth.service;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
 import com.signal.global.mail.MailService;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Map;
 import java.util.UUID;
@@ -21,11 +23,13 @@ public class VerificationService {
 
     public enum Purpose { SIGNUP, PASSWORD_RESET }
 
-    private record CodeEntry(String code, long expiresAt) {}
+    private record CodeEntry(String code, long sentAt, long expiresAt, int failedAttempts) {}
 
     private record TokenEntry(String email, Purpose purpose, long expiresAt) {}
 
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final long RESEND_COOLDOWN_MS = 30_000;   // 같은 주소로 메일 폭탄을 보내지 못하게 하는 재발송 간격
+    private static final int MAX_FAILED_ATTEMPTS = 5;   // 6자리 숫자 무차별 대입 방지
 
     private final MailService mailService;
 
@@ -40,24 +44,38 @@ public class VerificationService {
 
     /** 인증번호 생성·저장 후 메일 발송. 유효시간(초) 반환 */
     public long sendCode(String email, Purpose purpose) {
+        purgeExpired();
+        String key = key(email, purpose);
+        long now = now();
+        CodeEntry previous = codes.get(key);
+        if (previous != null && now - previous.sentAt() < RESEND_COOLDOWN_MS) {
+            throw new SignalException(ErrorCode.VERIFICATION_TOO_FREQUENT);
+        }
+
         String code = String.format("%06d", RANDOM.nextInt(1_000_000));
-        codes.put(key(email, purpose), new CodeEntry(code, now() + codeExpiration));
+        codes.put(key, new CodeEntry(code, now, now + codeExpiration, 0));
         mailService.sendVerificationCode(email, code);
         return codeExpiration / 1000;
     }
 
     /** 인증번호 확인 성공 시 verificationToken 발급 */
     public String verifyCode(String email, String code, Purpose purpose) {
-        CodeEntry entry = codes.get(key(email, purpose));
+        String key = key(email, purpose);
+        CodeEntry entry = codes.get(key);
 
         if (entry == null || now() > entry.expiresAt()) {
             throw new SignalException(ErrorCode.CODE_EXPIRED);
         }
-        if (!entry.code().equals(code)) {
+        if (!MessageDigest.isEqual(
+                entry.code().getBytes(StandardCharsets.UTF_8), code.getBytes(StandardCharsets.UTF_8))) {
+            recordFailedAttempt(key);
             throw new SignalException(ErrorCode.CODE_MISMATCH);
         }
 
-        codes.remove(key(email, purpose));
+        // 동시에 같은 인증번호로 여러 번 통과하지 못하도록 제거에 성공한 요청만 토큰을 받는다.
+        if (!codes.remove(key, entry)) {
+            throw new SignalException(ErrorCode.CODE_EXPIRED);
+        }
 
         String token = "vrf_" + UUID.randomUUID().toString().replace("-", "");
         tokens.put(token, new TokenEntry(email, purpose, now() + tokenExpiration));
@@ -75,7 +93,24 @@ public class VerificationService {
             throw new SignalException(ErrorCode.INVALID_VERIFICATION);
         }
 
-        tokens.remove(token);
+        // get과 remove 사이에 다른 요청이 끼어들어도 1회용이 보장되도록 제거에 성공한 요청만 통과시킨다.
+        if (!tokens.remove(token, entry)) {
+            throw new SignalException(ErrorCode.INVALID_VERIFICATION);
+        }
+    }
+
+    /** 확인되지 않고 방치된 인증번호/토큰이 인메모리 맵에 영구히 쌓이지 않도록 만료분을 정리한다. */
+    private void purgeExpired() {
+        long now = now();
+        codes.values().removeIf(entry -> now > entry.expiresAt());
+        tokens.values().removeIf(entry -> now > entry.expiresAt());
+    }
+
+    /** 실패 횟수가 한도에 도달하면 인증번호를 폐기해 재발송 없이는 더 시도할 수 없게 한다. */
+    private void recordFailedAttempt(String key) {
+        codes.computeIfPresent(key, (k, current) -> current.failedAttempts() + 1 >= MAX_FAILED_ATTEMPTS
+                ? null
+                : new CodeEntry(current.code(), current.sentAt(), current.expiresAt(), current.failedAttempts() + 1));
     }
 
     private String key(String email, Purpose purpose) {

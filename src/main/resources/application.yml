@@ -5,6 +5,9 @@ spring:
   profiles:
     active: local
 
+  flyway:
+    enabled: false   # local/test는 ddl-auto로 스키마를 만들므로 Flyway는 prod에서만 사용
+
   jpa:
     hibernate:
       ddl-auto: update
@@ -59,8 +62,7 @@ cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:https://signal-web-rho.vercel.app,http://localhost:3000}
 
 protection:
-  mode: ${PROTECTION_MODE:stub}   # stub: 원본 복사(기본) / http: protection-lab 서비스 호출(실제 노이즈 삽입)
-  processing-delay-ms: 3000       # 이미지 보호 처리 시뮬레이션 지연 (stub 모드에서만 사용)
+  mode: ${PROTECTION_MODE:noise}   # noise: 서버 내 픽셀 노이즈 삽입(NoiseImageProtector, 기본) / http: protection-lab 서비스 호출(모델 겨냥 적대적 노이즈)
   http:
     base-url: ${PROTECTION_API_URL:http://localhost:8000}
     timeout-seconds: ${PROTECTION_API_TIMEOUT_SECONDS:300}   # 노이즈 계산은 CPU에서 수 분까지 걸릴 수 있음
@@ -83,7 +85,7 @@ vision:
   llm:
     enabled: ${VISION_LLM_ENABLED:true}                   # false면 위험도분석/딥페이크탐지 둘 다 룰 기반 결과만 사용
     model: ${VISION_LLM_MODEL:qwen/qwen3.6-27b}            # Groq의 비전(이미지 입력) 지원 모델 (chat.llm과 같은 GROQ_API_KEY 사용)
-    max-completion-tokens: ${VISION_LLM_MAX_TOKENS:1024}
+    max-completion-tokens: ${VISION_LLM_MAX_TOKENS:2048}
 
 server:
   port: 8080
@@ -112,6 +114,12 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  flyway:
+    enabled: true
+    baseline-on-migrate: true   # 기존 운영 DB(Hibernate로 생성됨)는 V1을 기준선으로 보고 V2부터 적용
+    baseline-version: 1
+
   jpa:
+    defer-datasource-initialization: false   # true면 Flyway와 entityManagerFactory가 순환 의존해 기동 실패. 운영 DB는 테이블이 이미 있어 data.sql을 먼저 실행해도 안전
     hibernate:
       ddl-auto: validate

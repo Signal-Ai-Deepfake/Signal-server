@@ -8,6 +8,7 @@ public record ChatSummaryResponse(
         List<String> recommendedSteps,
         RiskLevel riskLevel,
         String riskDescription,
-        int progressPercent
+        int progressPercent,
+        ConsultationProgressResponse progress
 ) {
 }

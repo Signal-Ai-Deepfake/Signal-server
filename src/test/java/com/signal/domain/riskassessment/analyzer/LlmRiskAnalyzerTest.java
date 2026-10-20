@@ -58,6 +58,7 @@ class LlmRiskAnalyzerTest {
         assertThat(result.faces()).hasSize(1);
         assertThat(result.overallRiskLevel()).isNotNull();
         assertThat(result.recommendations()).isNotEmpty();
+        assertThat(result.fallbackUsed()).isFalse();
         // 얼굴 박스가 실제 이미지(400x300) 픽셀 좌표로 환산되었는지 확인
         assertThat(result.faces().get(0).getBoundingBox().getX()).isEqualTo((int) Math.round(0.2 * 400));
         assertThat(result.faces().get(0).getBoundingBox().getY()).isEqualTo((int) Math.round(0.1 * 300));
@@ -78,6 +79,8 @@ class LlmRiskAnalyzerTest {
         assertThat(result.faceDetected()).isFalse();
         assertThat(result.factors()).isEmpty();
         assertThat(result.faces()).isEmpty();
+        // 실제 LLM이 얼굴을 못 찾았다고 답한 것이므로 폴백이 아니다.
+        assertThat(result.fallbackUsed()).isFalse();
     }
 
     @Test
@@ -90,6 +93,7 @@ class LlmRiskAnalyzerTest {
 
         // 예외 없이 스텁(룰 기반) 결과가 대신 반환되어야 한다 (faceDetected 여부와 무관하게 정상 완료)
         assertThat(result).isNotNull();
+        assertThat(result.fallbackUsed()).isTrue();
     }
 
     @Test
@@ -99,6 +103,7 @@ class LlmRiskAnalyzerTest {
         RiskAnalysisResult result = analyzer.analyze(samplePngImage());
 
         assertThat(result).isNotNull();
+        assertThat(result.fallbackUsed()).isTrue();
         verify(visionCompletionClient, never()).complete(any(), any(), any(), any());
     }
 }

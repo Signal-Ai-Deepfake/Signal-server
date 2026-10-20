@@ -12,7 +12,8 @@ public record DeepfakeDetectionResponse(
         Double confidence,
         Integer riskScore,
         List<EvidenceResponse> evidences,
-        String highlightedResultUrl
+        String highlightedResultUrl,
+        Boolean fallbackUsed
 ) {
 
     public static DeepfakeDetectionResponse from(DeepfakeDetection detection) {
@@ -23,6 +24,7 @@ public record DeepfakeDetectionResponse(
                 detection.getConfidence(),
                 detection.getRiskScore(),
                 detection.getEvidences().stream().map(EvidenceResponse::from).toList(),
-                detection.getHighlightedResultUrl());
+                detection.getHighlightedResultUrl(),
+                detection.getFallbackUsed());
     }
 }

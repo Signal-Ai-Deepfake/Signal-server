@@ -5,6 +5,7 @@ import com.signal.domain.user.dto.response.ProfileImageResponse;
 import com.signal.domain.user.dto.response.UserResponse;
 import com.signal.domain.user.entity.User;
 import com.signal.domain.user.service.UserService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +36,7 @@ public class UserController {
     @PatchMapping("/me")
     public ResponseEntity<UserResponse> updateMyProfile(
             @AuthenticationPrincipal Long userId,
-            @RequestBody UpdateUserRequest request) {
+            @Valid @RequestBody UpdateUserRequest request) {
         User user = userService.updateProfile(userId, request);
         return ResponseEntity.ok(UserResponse.from(user));
     }

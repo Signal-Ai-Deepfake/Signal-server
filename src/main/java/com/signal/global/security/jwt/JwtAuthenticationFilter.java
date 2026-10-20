@@ -1,5 +1,6 @@
 package com.signal.global.security.jwt;
 
+import com.signal.domain.user.repository.UserRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +23,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtProvider jwtProvider;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -31,9 +33,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token != null && jwtProvider.validateToken(token) && !jwtProvider.isRefreshToken(token)) {
             Long userId = jwtProvider.getUserId(token);
-            var authentication = new UsernamePasswordAuthenticationToken(
-                    userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            // 탈퇴한 사용자의 액세스 토큰은 만료 전까지 서명이 유효하다. 존재 여부를 여기서 한 번
+            // 확인해두면 각 서비스가 없는 userId로 데이터를 쌓는 일을 막을 수 있다.
+            if (userRepository.existsById(userId)) {
+                var authentication = new UsernamePasswordAuthenticationToken(
+                        userId, null, List.of(new SimpleGrantedAuthority("ROLE_USER")));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            }
         }
 
         filterChain.doFilter(request, response);

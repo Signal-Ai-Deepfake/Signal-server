@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.signal.domain.riskassessment.analyzer.RiskAnalysisResult;
@@ -47,6 +48,15 @@ class RiskAssessmentServiceTest {
     }
 
     @Test
+    void 비로그인으로_내_분석_목록을_조회하면_UNAUTHORIZED이고_저장소를_조회하지_않는다() {
+        assertThatThrownBy(() -> riskAssessmentService.getMyAssessments(null))
+                .isInstanceOfSatisfying(SignalException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.UNAUTHORIZED));
+
+        verifyNoInteractions(riskAssessmentRepository);
+    }
+
+    @Test
     void 위험도_진단을_요청하면_분석결과가_저장되고_반환된다() {
         MockMultipartFile image = new MockMultipartFile("image", "photo.png", "image/png", new byte[]{1, 2, 3});
         RiskAnalysisResult result = new RiskAnalysisResult(
@@ -58,7 +68,8 @@ class RiskAssessmentServiceTest {
                 List.of(DetectedFace.builder()
                         .faceIndex(0)
                         .boundingBox(BoundingBox.builder().x(1).y(2).width(3).height(4).build())
-                        .build()));
+                        .build()),
+                false);
 
         when(riskAnalyzer.analyze(image)).thenReturn(result);
         when(fileStorage.store(any(), anyString())).thenReturn("/uploads/risk-assessments/generated.png");
@@ -72,13 +83,14 @@ class RiskAssessmentServiceTest {
         assertThat(saved.isFaceDetected()).isTrue();
         assertThat(saved.getFactors()).hasSize(1);
         assertThat(saved.getFaces()).hasSize(1);
+        assertThat(saved.isFallbackUsed()).isFalse();
         verify(fileStorage).store(image, "risk-assessments");
     }
 
     @Test
     void 얼굴이_검출되지_않으면_예외가_발생한다() {
         MockMultipartFile image = new MockMultipartFile("image", "photo.png", "image/png", new byte[]{1, 2, 3});
-        when(riskAnalyzer.analyze(image)).thenReturn(RiskAnalysisResult.faceNotDetected());
+        when(riskAnalyzer.analyze(image)).thenReturn(RiskAnalysisResult.faceNotDetected(false));
 
         assertThatThrownBy(() -> riskAssessmentService.createAssessment(1L, null, image))
                 .isInstanceOf(SignalException.class)

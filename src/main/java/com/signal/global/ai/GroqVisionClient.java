@@ -31,7 +31,7 @@ public class GroqVisionClient implements VisionCompletionClient {
             @Value("${chat.llm.base-url:https://api.groq.com/openai/v1}") String baseUrl,
             @Value("${chat.llm.api-key:}") String apiKey,
             @Value("${vision.llm.model:qwen/qwen3.6-27b}") String model,
-            @Value("${vision.llm.max-completion-tokens:1024}") int maxCompletionTokens) {
+            @Value("${vision.llm.max-completion-tokens:2048}") int maxCompletionTokens) {
         this.apiKey = apiKey;
         this.model = model;
         this.maxCompletionTokens = maxCompletionTokens;
@@ -44,8 +44,9 @@ public class GroqVisionClient implements VisionCompletionClient {
             throw new IllegalStateException("GROQ_API_KEY가 설정되지 않았습니다.");
         }
 
-        String effectiveMimeType = StringUtils.hasText(mimeType) ? mimeType : "image/jpeg";
-        String base64Image = Base64.getEncoder().encodeToString(imageBytes);
+        VisionImagePreprocessor.Prepared prepared = VisionImagePreprocessor.prepare(imageBytes, mimeType);
+        String effectiveMimeType = StringUtils.hasText(prepared.mimeType()) ? prepared.mimeType() : "image/jpeg";
+        String base64Image = Base64.getEncoder().encodeToString(prepared.bytes());
         String dataUri = "data:" + effectiveMimeType + ";base64," + base64Image;
 
         Map<String, Object> requestBody = Map.of(

@@ -82,7 +82,7 @@ class HttpImageProtectorTest {
     }
 
     @Test
-    void 보호_서비스가_오류를_반환하면_스텁으로_대체하지_않고_FAILED로_저장한다() {
+    void 보호_서비스가_오류를_반환하면_다른_구현으로_대체하지_않고_FAILED로_저장한다() {
         Protection protection = sampleProtection();
         when(protectionRepository.findById(1L)).thenReturn(Optional.of(protection));
         when(fileStorage.load(ORIGINAL_URL)).thenReturn(new byte[]{1, 2, 3});
