@@ -103,6 +103,7 @@ public class LlmRiskAnalyzer implements RiskAnalyzer {
         VisionRiskAssessment parsed = parseResponse(rawResponse);
 
         if (!parsed.faceDetected()) {
+            log.warn("비전 LLM이 얼굴을 검출하지 못했다고 응답했습니다. 응답: {}", rawResponse);
             return RiskAnalysisResult.faceNotDetected(false);
         }
 
