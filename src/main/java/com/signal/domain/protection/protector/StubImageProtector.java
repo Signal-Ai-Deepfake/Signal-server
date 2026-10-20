@@ -11,8 +11,9 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 /**
- * 실제 AI 서버 연동 전까지 사용하는 스텁 구현체. 원본 이미지를 그대로 복제해 보호 이미지로 저장하고,
- * 이미지 바이트 해시 기반으로 결정론적인 시각적 차이 값을 산출한다. 실서버 연동 시 이 클래스를 교체한다.
+ * 실제 AI 서버 연동 전까지 사용하는 스텁 구현체. 노이즈 삽입 등 보호 처리를 전혀 하지 않고 원본
+ * 이미지를 바이트 그대로 복제해 "보호 이미지"로 저장한다(원본과 동일, 보호 효과 없음). 시각적 차이 값은
+ * 이미지 바이트 해시로 만든 가짜 값이며 API 응답에서는 노출하지 않는다. 실서버 연동 시 이 클래스를 교체한다.
  *
  * ProtectionService(→ImageProtector) 의존 방향의 순환을 피하기 위해 완료/실패 처리 시
  * ProtectionService가 아닌 ProtectionRepository에 직접 접근한다.
@@ -39,6 +40,7 @@ public class StubImageProtector implements ImageProtector {
     @Async
     public void protect(Long protectionId, String originalImageUrl, ProtectionLevel protectionLevel) {
         try {
+            log.warn("시연용 스텁 동작: 노이즈를 삽입하지 않고 원본을 그대로 복사합니다. protectionId={}", protectionId);
             Thread.sleep(processingDelayMs);
 
             byte[] originalBytes = fileStorage.load(originalImageUrl);

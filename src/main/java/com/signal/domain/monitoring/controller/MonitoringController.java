@@ -5,6 +5,7 @@ import com.signal.domain.monitoring.dto.response.MonitoringCreateResponse;
 import com.signal.domain.monitoring.entity.Detection;
 import com.signal.domain.monitoring.entity.Monitoring;
 import com.signal.domain.monitoring.service.MonitoringService;
+import io.swagger.v3.oas.annotations.Operation;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,8 @@ public class MonitoringController {
 
     private final MonitoringService monitoringService;
 
+    @Operation(summary = "얼굴 도용 모니터링 시작",
+            description = "[현재 스텁] 실제 검색은 수행되지 않고 시연용 예시 탐지 결과가 생성됩니다.")
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MonitoringCreateResponse> createMonitoring(
             @AuthenticationPrincipal Long userId,
@@ -36,6 +39,8 @@ public class MonitoringController {
         return ResponseEntity.status(HttpStatus.CREATED).body(MonitoringCreateResponse.from(monitoring));
     }
 
+    @Operation(summary = "탐지 결과 조회",
+            description = "[현재 스텁] simulated=true 항목은 시연용 예시이며 sourceUrl 은 null, thumbnailUrl 은 SAMPLE 이미지입니다.")
     @GetMapping("/{monitoringId}/detections")
     public ResponseEntity<DetectionPageResponse> getDetections(
             @AuthenticationPrincipal Long userId,
