@@ -7,18 +7,20 @@ import com.signal.global.file.FileStorage;
 import java.util.Arrays;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 /**
  * 실제 AI 서버 연동 전까지 사용하는 스텁 구현체. 원본 이미지를 그대로 복제해 보호 이미지로 저장하고,
- * 이미지 바이트 해시 기반으로 결정론적인 시각적 차이 값을 산출한다. 실서버 연동 시 이 클래스를 교체한다.
+ * 이미지 바이트 해시 기반으로 결정론적인 시각적 차이 값을 산출한다. protection.mode=http 로 설정하면 {@link HttpImageProtector}가 대신 사용된다.
  *
  * ProtectionService(→ImageProtector) 의존 방향의 순환을 피하기 위해 완료/실패 처리 시
  * ProtectionService가 아닌 ProtectionRepository에 직접 접근한다.
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "protection.mode", havingValue = "stub", matchIfMissing = true)
 public class StubImageProtector implements ImageProtector {
 
     private static final String PROTECTED_IMAGE_DIRECTORY = "protections";
