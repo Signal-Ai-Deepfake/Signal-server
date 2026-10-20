@@ -1,0 +1,13 @@
+torch
+diffusers
+transformers
+accelerate
+safetensors
+pillow
+numpy
+fastapi
+uvicorn[standard]
+python-multipart
+# 테스트용
+pytest
+httpx

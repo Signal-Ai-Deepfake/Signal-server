@@ -30,9 +30,20 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:mysql://mysql:3306/signal?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       CORS_ALLOWED_ORIGINS: https://signal-web-rho.vercel.app,http://localhost:3000
+      PROTECTION_MODE: ${PROTECTION_MODE:-noise}          # http로 바꾸면 protection 서비스(노이즈 삽입)를 호출
+      PROTECTION_API_URL: http://protection:8000
     volumes:
       - uploads-data:/app/uploads
+
+  # 실험용 이미지 보호 서비스. 기본 배포에는 포함되지 않으며 `docker compose --profile protection up -d` 로 켠다.
+  protection:
+    profiles: ["protection"]
+    build: ./protection-lab
+    restart: unless-stopped
+    volumes:
+      - model-cache:/models
 
 volumes:
   mysql-data:
   uploads-data:
+  model-cache:

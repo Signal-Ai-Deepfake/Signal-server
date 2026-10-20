@@ -61,6 +61,12 @@ file:
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:https://signal-web-rho.vercel.app,http://localhost:3000}
 
+protection:
+  mode: ${PROTECTION_MODE:noise}   # noise: 서버 내 픽셀 노이즈 삽입(NoiseImageProtector, 기본) / http: protection-lab 서비스 호출(모델 겨냥 적대적 노이즈)
+  http:
+    base-url: ${PROTECTION_API_URL:http://localhost:8000}
+    timeout-seconds: ${PROTECTION_API_TIMEOUT_SECONDS:300}   # 노이즈 계산은 CPU에서 수 분까지 걸릴 수 있음
+
 monitoring:
   processing-delay-ms: 3000   # 얼굴 모니터링 초기 탐지 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
 

@@ -16,6 +16,7 @@ import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
@@ -28,11 +29,14 @@ import org.springframework.stereotype.Component;
  * 주의: 이는 학습된 모델을 겨냥해 최적화한 적대적 섭동(adversarial perturbation)이 아니라 일반 노이즈
  * 삽입이다. 도용·합성 방지를 보장하지 않으며, 모델 기반 적대적 보호는 별도 엔진 연동이 필요하다.
  *
+ * protection.mode=http 이면 이 구현체 대신 {@link HttpImageProtector}가 사용된다.
+ *
  * ProtectionService(→ImageProtector) 의존 방향의 순환을 피하기 위해 완료/실패 처리 시
  * ProtectionService가 아닌 ProtectionRepository에 직접 접근한다.
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "protection.mode", havingValue = "noise", matchIfMissing = true)
 public class NoiseImageProtector implements ImageProtector {
 
     private static final String PROTECTED_IMAGE_DIRECTORY = "protections";
