@@ -27,7 +27,7 @@ public class ProtectionController {
     private final ProtectionService protectionService;
 
     @Operation(summary = "이미지 보호 처리 요청",
-            description = "[현재 스텁] 실제 노이즈 삽입은 구현되지 않았으며 원본 이미지가 그대로 복사됩니다. 응답의 simulated=true 로 구분하세요.")
+            description = "원본 이미지에 노이즈를 삽입해 보호 이미지를 비동기로 생성합니다. 학습 모델을 겨냥한 적대적 섭동이 아닌 일반 노이즈 삽입이라 도용·합성 방지를 보장하지는 않습니다.")
     @PostMapping
     public ResponseEntity<ProtectionCreateResponse> createProtection(
             @AuthenticationPrincipal Long userId,
@@ -38,7 +38,7 @@ public class ProtectionController {
     }
 
     @Operation(summary = "보호 처리 결과 조회",
-            description = "[현재 스텁] simulated=true 이면 시연용 결과이며 visualDifference 는 제공되지 않습니다.")
+            description = "status가 COMPLETED이면 보호 이미지 URL과 실측 visualDifference(원본 대비 RMS 픽셀 차이, 0~1)를 제공합니다.")
     @GetMapping("/{protectionId}")
     public ResponseEntity<ProtectionResponse> getProtection(
             @AuthenticationPrincipal Long userId,
@@ -48,7 +48,7 @@ public class ProtectionController {
     }
 
     @Operation(summary = "보호 이미지 다운로드",
-            description = "[현재 스텁] 원본과 동일한 이미지가 내려갑니다(보호 효과 없음).")
+            description = "노이즈가 삽입된 보호 이미지(PNG)를 내려받습니다. 처리 완료 전에는 요청이 거부됩니다.")
     @GetMapping("/{protectionId}/download")
     public ResponseEntity<byte[]> downloadProtectedImage(
             @AuthenticationPrincipal Long userId,

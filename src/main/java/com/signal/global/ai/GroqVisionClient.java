@@ -31,7 +31,7 @@ public class GroqVisionClient implements VisionCompletionClient {
             @Value("${chat.llm.base-url:https://api.groq.com/openai/v1}") String baseUrl,
             @Value("${chat.llm.api-key:}") String apiKey,
             @Value("${vision.llm.model:qwen/qwen3.6-27b}") String model,
-            @Value("${vision.llm.max-completion-tokens:1024}") int maxCompletionTokens) {
+            @Value("${vision.llm.max-completion-tokens:2048}") int maxCompletionTokens) {
         this.apiKey = apiKey;
         this.model = model;
         this.maxCompletionTokens = maxCompletionTokens;

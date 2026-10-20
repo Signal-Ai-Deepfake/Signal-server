@@ -4,8 +4,8 @@ import com.signal.domain.protection.entity.Protection;
 import com.signal.domain.protection.entity.ProtectionStatus;
 
 /**
- * simulated=true 이면 실제 노이즈 삽입이 이루어지지 않은 시연용 결과다(StubImageProtector).
- * 이 경우 visualDifference는 실측값이 아니므로 null로 내려간다. 실제 구현체로 교체하면 함께 수정한다.
+ * visualDifference는 원본 대비 보호 이미지의 RMS 픽셀 차이(0~1, 실측값)이며 처리 완료 전에는 null이다.
+ * simulated는 프론트 호환을 위해 유지하는 필드로, 실제 노이즈 삽입(NoiseImageProtector)을 하므로 항상 false다.
  */
 public record ProtectionResponse(
         Long protectionId,
@@ -16,15 +16,13 @@ public record ProtectionResponse(
         boolean simulated
 ) {
 
-    private static final boolean SIMULATED = true;
-
     public static ProtectionResponse from(Protection protection) {
         return new ProtectionResponse(
                 protection.getId(),
                 protection.getStatus(),
                 protection.getOriginalImageUrl(),
                 protection.getProtectedImageUrl(),
-                SIMULATED ? null : protection.getVisualDifference(),
-                SIMULATED);
+                protection.getVisualDifference(),
+                false);
     }
 }

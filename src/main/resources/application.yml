@@ -61,9 +61,6 @@ file:
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:https://signal-web-rho.vercel.app,http://localhost:3000}
 
-protection:
-  processing-delay-ms: 3000   # 이미지 보호 처리 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
-
 monitoring:
   processing-delay-ms: 3000   # 얼굴 모니터링 초기 탐지 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
 
@@ -82,7 +79,7 @@ vision:
   llm:
     enabled: ${VISION_LLM_ENABLED:true}                   # false면 위험도분석/딥페이크탐지 둘 다 룰 기반 결과만 사용
     model: ${VISION_LLM_MODEL:qwen/qwen3.6-27b}            # Groq의 비전(이미지 입력) 지원 모델 (chat.llm과 같은 GROQ_API_KEY 사용)
-    max-completion-tokens: ${VISION_LLM_MAX_TOKENS:1024}
+    max-completion-tokens: ${VISION_LLM_MAX_TOKENS:2048}
 
 server:
   port: 8080
