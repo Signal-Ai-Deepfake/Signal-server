@@ -33,8 +33,8 @@ import org.springframework.web.multipart.MultipartFile;
  *   (LLM은 픽셀만 볼 뿐 원본 파일의 EXIF 바이트를 볼 수 없어 이 항목을 신뢰성 있게 답할 수 없다).
  * - 위험도별 권고 문구는 계속 {@link StubRiskAnalyzer}의 검증된 고정 문구를 재사용한다(LLM이 임의로
  *   지어내지 않도록).
- * - GROQ_API_KEY 미설정, vision.llm.enabled=false, API 호출/파싱 실패 시에는 예외를 삼키고
- *   StubRiskAnalyzer의 결정론적 결과로 안전하게 대체한다.
+ * - GROQ_API_KEY 미설정, vision.llm.enabled=false, API 호출/파싱 실패 시에는 해시 기반 추정 점수를
+ *   내놓지 않고 ANALYSIS_UNAVAILABLE(분석하지 못함)로 응답한다.
  *
  * 주의: 범용 비전 LLM은 전문 위험도 분석 모델이 아니므로 점수·얼굴 위치는 참고용 추정치다.
  */
@@ -83,13 +83,13 @@ public class LlmRiskAnalyzer implements RiskAnalyzer {
     @Override
     public RiskAnalysisResult analyze(MultipartFile image) {
         if (!llmEnabled) {
-            return fallbackAnalyzer.analyze(image);
+            throw new SignalException(ErrorCode.ANALYSIS_UNAVAILABLE);
         }
         try {
             return analyzeWithLlm(image);
         } catch (Exception e) {
-            log.warn("LLM 위험도 분석 실패, 룰 기반 분석으로 대체합니다.", e);
-            return fallbackAnalyzer.analyze(image);
+            log.warn("LLM 위험도 분석 실패, 분석하지 못함으로 응답합니다.", e);
+            throw new SignalException(ErrorCode.ANALYSIS_UNAVAILABLE);
         }
     }
 

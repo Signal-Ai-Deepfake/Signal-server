@@ -1,6 +1,7 @@
 package com.signal.domain.riskassessment.analyzer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
@@ -9,6 +10,8 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signal.global.ai.VisionCompletionClient;
+import com.signal.global.exception.ErrorCode;
+import com.signal.global.exception.SignalException;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -84,26 +87,23 @@ class LlmRiskAnalyzerTest {
     }
 
     @Test
-    void LLM_호출이_실패하면_룰_기반_분석으로_대체한다() throws IOException {
+    void LLM_호출이_실패하면_추정_점수_없이_분석_불가로_응답한다() throws IOException {
         LlmRiskAnalyzer analyzer = new LlmRiskAnalyzer(visionCompletionClient, objectMapper, true);
         when(visionCompletionClient.complete(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenThrow(new IllegalStateException("GROQ_API_KEY가 설정되지 않았습니다."));
 
-        RiskAnalysisResult result = analyzer.analyze(samplePngImage());
-
-        // 예외 없이 스텁(룰 기반) 결과가 대신 반환되어야 한다 (faceDetected 여부와 무관하게 정상 완료)
-        assertThat(result).isNotNull();
-        assertThat(result.fallbackUsed()).isTrue();
+        assertThatThrownBy(() -> analyzer.analyze(samplePngImage()))
+                .isInstanceOfSatisfying(SignalException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ANALYSIS_UNAVAILABLE));
     }
 
     @Test
-    void vision_llm_비활성화면_LLM을_호출하지_않고_룰_기반_결과만_사용한다() throws IOException {
+    void vision_llm_비활성화면_LLM을_호출하지_않고_분석_불가로_응답한다() throws IOException {
         LlmRiskAnalyzer analyzer = new LlmRiskAnalyzer(visionCompletionClient, objectMapper, false);
 
-        RiskAnalysisResult result = analyzer.analyze(samplePngImage());
-
-        assertThat(result).isNotNull();
-        assertThat(result.fallbackUsed()).isTrue();
+        assertThatThrownBy(() -> analyzer.analyze(samplePngImage()))
+                .isInstanceOfSatisfying(SignalException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.ANALYSIS_UNAVAILABLE));
         verify(visionCompletionClient, never()).complete(any(), any(), any(), any());
     }
 }

@@ -58,7 +58,7 @@ Signal은 서비스에 사용한 AI 모델, 오픈소스, 개발 과정에서 �
 | 익명 상담 챗봇 응답 생성 | Groq Chat Completions (OpenAI 호환 API) | [GroqCloud](https://console.groq.com) 호스팅 API | GroqCloud 서비스 약관, 무료 티어 사용 |
 | 사진 위험도 분석 / 딥페이크 탐지 | Groq Vision — `qwen/qwen3.6-27b` (Preview) | GroqCloud가 호스팅하는 Qwen 계열 비전 모델 | GroqCloud 서비스 약관, 무료 티어 사용 |
 
-- AI 결과에는 `fallbackUsed` 필드를 포함해, 실제 LLM 분석 결과인지 룰 기반 대체(폴백) 결과인지 사용자에게 공개합니다.
+- AI 호출이 실패하면 해시로 만든 추정 판정을 보여주지 않고 "분석하지 못함"으로 안내합니다(딥페이크 탐지는 `FAILED`, 위험도 분석은 `503 ANALYSIS_UNAVAILABLE`). `fallbackUsed` 필드는 호환을 위해 유지하며 정상 응답에서는 항상 `false`입니다.
 - 딥페이크 탐지 결과는 범용 모델의 판단이므로 확정 판정이 아닌 **참고 지표**로만 제공합니다.
 - 위기 감지, 추천 행동·기관 안내, 메타데이터 판독은 AI가 아닌 결정론적 룰 기반 로직이 담당합니다.
 
