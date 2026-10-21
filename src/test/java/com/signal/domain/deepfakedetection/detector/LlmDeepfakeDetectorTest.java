@@ -94,35 +94,29 @@ class LlmDeepfakeDetectorTest {
     }
 
     @Test
-    void 영상_입력이면_LLM을_호출하지_않고_스텁으로_처리한다() throws IOException {
+    void 영상_입력이면_LLM을_호출하지_않고_분석하지_못함으로_처리한다() throws IOException {
         DeepfakeDetection detection = sampleDetection();
         when(deepfakeDetectionRepository.findById(1L)).thenReturn(Optional.of(detection));
-        when(fileStorage.load(anyString())).thenReturn(new byte[]{1, 2, 3});
-        when(fileStorage.store(any(byte[].class), anyString(), anyString()))
-                .thenReturn("/uploads/deepfake-detections/highlighted.png");
 
         detector.detect(1L, "/uploads/deepfake-detections/original.mp4", true);
 
-        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.COMPLETED);
-        assertThat(detection.getFallbackUsed()).isTrue();
+        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.FAILED);
+        assertThat(detection.getVerdict()).isNull();
         verify(visionCompletionClient, never()).complete(any(), any(), any(), any());
     }
 
     @Test
-    void LLM_호출이_실패하면_스텁으로_대체되어_완료_처리된다() throws IOException {
+    void LLM_호출이_실패하면_추정_판정_없이_실패_처리한다() throws IOException {
         DeepfakeDetection detection = sampleDetection();
         when(deepfakeDetectionRepository.findById(1L)).thenReturn(Optional.of(detection));
         when(fileStorage.load(anyString())).thenReturn(samplePngBytes());
-        when(fileStorage.store(any(byte[].class), anyString(), anyString()))
-                .thenReturn("/uploads/deepfake-detections/highlighted.png");
         when(visionCompletionClient.complete(any(byte[].class), anyString(), anyString(), anyString()))
                 .thenThrow(new IllegalStateException("GROQ_API_KEY가 설정되지 않았습니다."));
 
         detector.detect(1L, "/uploads/deepfake-detections/original.png", false);
 
-        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.COMPLETED);
-        assertThat(detection.getVerdict()).isNotNull();
-        assertThat(detection.getFallbackUsed()).isTrue();
+        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.FAILED);
+        assertThat(detection.getVerdict()).isNull();
     }
 
     @Test
@@ -131,14 +125,11 @@ class LlmDeepfakeDetectorTest {
                 fileStorage, deepfakeDetectionRepository, visionCompletionClient, objectMapper, 0, false);
         DeepfakeDetection detection = sampleDetection();
         when(deepfakeDetectionRepository.findById(1L)).thenReturn(Optional.of(detection));
-        when(fileStorage.load(anyString())).thenReturn(new byte[]{1, 2, 3});
-        when(fileStorage.store(any(byte[].class), anyString(), anyString()))
-                .thenReturn("/uploads/deepfake-detections/highlighted.png");
 
         disabledDetector.detect(1L, "/uploads/deepfake-detections/original.png", false);
 
         verify(visionCompletionClient, never()).complete(any(), any(), any(), any());
-        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.COMPLETED);
-        assertThat(detection.getFallbackUsed()).isTrue();
+        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.FAILED);
+        assertThat(detection.getVerdict()).isNull();
     }
 }

@@ -29,12 +29,13 @@ import org.springframework.stereotype.Component;
  *   전문 탐지기 수준의 정확도를 기대해서는 안 된다.
  * - 영상 입력은 지원하지 않는다. Groq의 비전 API는 정지 이미지만 받으며, 프레임 추출·다중 프레임
  *   분석에는 별도 비디오 처리 파이프라인(ffmpeg 등)이 필요해 이번 범위에는 포함하지 않았다.
- *   영상이 들어오면 결정론적 스텁({@link StubDeepfakeDetector})으로 폴백한다.
+ *   영상이 들어오면 분석하지 못함(FAILED)으로 처리한다.
  * - highlightedResultUrl은 스텁과 마찬가지로 원본 파일을 그대로 저장한다. 근거 영역을 실제로
  *   시각적으로 표시(하이라이트 오버레이 렌더링)하는 기능은 이번 범위에 포함하지 않았다.
  *
  * GROQ_API_KEY 미설정, vision.llm.enabled=false, API 호출/파싱 실패 시에는 예외를 삼키고
- * StubDeepfakeDetector의 결정론적 결과로 안전하게 대체한다.
+ * 파일 해시로 만든 추정 판정을 내놓는 대신 FAILED(분석하지 못함)로 처리한다. 딥페이크처럼 민감한
+ * 주제에서 근거 없는 verdict를 보여주는 것보다 분석하지 못했다고 알리는 편이 안전하기 때문이다.
  */
 @Slf4j
 @Component
@@ -100,7 +101,8 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
     @Async
     public void detect(Long detectionId, String fileUrl, boolean isVideo) {
         if (!llmEnabled || isVideo) {
-            fallbackDetector.detect(detectionId, fileUrl, isVideo);
+            log.info("딥페이크 탐지를 수행하지 않습니다(영상이거나 LLM 비활성화): detectionId={}", detectionId);
+            fallbackDetector.markFailed(detectionId);
             return;
         }
         try {
@@ -121,8 +123,8 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
             fallbackDetector.markCompleted(
                     detectionId, verdict, confidence, riskScore, evidences, highlightedResultUrl, false);
         } catch (Exception e) {
-            log.warn("LLM 딥페이크 탐지 실패, 룰 기반 탐지로 대체합니다: detectionId={}", detectionId, e);
-            fallbackDetector.detect(detectionId, fileUrl, isVideo);
+            log.warn("LLM 딥페이크 탐지 실패, 분석하지 못함으로 처리합니다: detectionId={}", detectionId, e);
+            fallbackDetector.markFailed(detectionId);
         }
     }
 
