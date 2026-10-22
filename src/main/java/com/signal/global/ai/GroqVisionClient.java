@@ -1,9 +1,12 @@
 package com.signal.global.ai;
 
+import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -26,16 +29,30 @@ public class GroqVisionClient implements VisionCompletionClient {
     private final String model;
     private final int maxCompletionTokens;
 
+    @Autowired
     public GroqVisionClient(
             RestClient.Builder restClientBuilder,
             @Value("${chat.llm.base-url:https://api.groq.com/openai/v1}") String baseUrl,
             @Value("${chat.llm.api-key:}") String apiKey,
             @Value("${vision.llm.model:qwen/qwen3.8-27b}") String model,
-            @Value("${vision.llm.max-completion-tokens:2048}") int maxCompletionTokens) {
+            @Value("${vision.llm.max-completion-tokens:2048}") int maxCompletionTokens,
+            @Value("${vision.llm.read-timeout-seconds:60}") long readTimeoutSeconds) {
+        this(buildClient(restClientBuilder, baseUrl, readTimeoutSeconds), apiKey, model, maxCompletionTokens);
+    }
+
+    GroqVisionClient(RestClient restClient, String apiKey, String model, int maxCompletionTokens) {
+        this.restClient = restClient;
         this.apiKey = apiKey;
         this.model = model;
         this.maxCompletionTokens = maxCompletionTokens;
-        this.restClient = restClientBuilder.baseUrl(baseUrl).build();
+    }
+
+    private static RestClient buildClient(RestClient.Builder builder, String baseUrl, long readTimeoutSeconds) {
+        // 전역 http.client.read-timeout(10초)은 이미지 분석 응답(추론 포함 수십 초)에 짧아 이 클라이언트만 따로 설정한다.
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(5));
+        factory.setReadTimeout(Duration.ofSeconds(readTimeoutSeconds));
+        return builder.baseUrl(baseUrl).requestFactory(factory).build();
     }
 
     @Override

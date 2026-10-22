@@ -22,7 +22,8 @@ class GroqVisionClientTest {
     void 정상_응답이면_choices의_첫_메시지_content를_반환한다() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GroqVisionClient client = new GroqVisionClient(builder, BASE_URL, "test-key", "qwen/qwen3.8-27b", 1024);
+        GroqVisionClient client = new GroqVisionClient(
+                builder.baseUrl(BASE_URL).build(), "test-key", "qwen/qwen3.8-27b", 1024);
 
         server.expect(requestTo(BASE_URL + "/chat/completions"))
                 .andExpect(method(HttpMethod.POST))
@@ -47,7 +48,8 @@ class GroqVisionClientTest {
     @Test
     void API_키가_비어있으면_호출하지_않고_예외를_던진다() {
         RestClient.Builder builder = RestClient.builder();
-        GroqVisionClient client = new GroqVisionClient(builder, BASE_URL, "", "qwen/qwen3.8-27b", 1024);
+        GroqVisionClient client = new GroqVisionClient(
+                builder.baseUrl(BASE_URL).build(), "", "qwen/qwen3.8-27b", 1024);
 
         assertThatThrownBy(() -> client.complete(new byte[]{1, 2, 3}, "image/png", "sys", "user"))
                 .isInstanceOf(IllegalStateException.class);

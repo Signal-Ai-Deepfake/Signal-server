@@ -86,6 +86,7 @@ vision:
     enabled: ${VISION_LLM_ENABLED:true}                   # false면 위험도분석/딥페이크탐지 둘 다 룰 기반 결과만 사용
     model: ${VISION_LLM_MODEL:qwen/qwen3.8-27b}            # Groq의 비전(이미지 입력) 지원 모델 (qwen3.6-27b는 2026-09-14 종료) (chat.llm과 같은 GROQ_API_KEY 사용)
     max-completion-tokens: ${VISION_LLM_MAX_TOKENS:2048}
+    read-timeout-seconds: ${VISION_LLM_READ_TIMEOUT_SECONDS:60}   # 이미지 분석은 응답이 길어 전역 read-timeout(10초)과 별도로 둔다
 
 server:
   port: 8080
