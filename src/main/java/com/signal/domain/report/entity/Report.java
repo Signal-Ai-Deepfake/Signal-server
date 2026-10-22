@@ -17,6 +17,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -62,6 +63,9 @@ public class Report {
 
     private String targetAgencyType;
 
+    @Column(length = 3000)
+    private String additionalNotes;
+
     private String documentUrl;
 
     @ElementCollection(fetch = FetchType.EAGER)
@@ -75,7 +79,7 @@ public class Report {
     @Builder
     public Report(Long userId, LocalDate incidentDate, String discoveryRoute, String damageType,
                   String description, List<String> sourceUrls, List<Long> evidenceIds,
-                  String targetAgencyType, String documentUrl) {
+                  String targetAgencyType, String additionalNotes, String documentUrl) {
         this.userId = userId;
         this.status = ReportStatus.DRAFT;
         this.incidentDate = incidentDate;
@@ -85,6 +89,7 @@ public class Report {
         this.sourceUrls = sourceUrls;
         this.evidenceIds = evidenceIds;
         this.targetAgencyType = targetAgencyType;
+        this.additionalNotes = additionalNotes;
         this.documentUrl = documentUrl;
         this.timeline = new ArrayList<>();
         this.timeline.add(TimelineEntry.builder().event(TimelineEvent.CREATED).occurredAt(LocalDateTime.now()).build());
@@ -95,29 +100,37 @@ public class Report {
         return this.userId.equals(userId);
     }
 
-    public void applyPatch(LocalDate incidentDate, String discoveryRoute, String damageType,
-                            String description, List<String> sourceUrls, List<Long> evidenceIds,
-                            String targetAgencyType, String documentUrl) {
+    /**
+     * null인 Optional은 "변경 없음", 비어 있는 Optional은 "값 지우기"를 뜻한다.
+     */
+    public void applyPatch(Optional<LocalDate> incidentDate, Optional<String> discoveryRoute,
+                            Optional<String> damageType, String description,
+                            Optional<List<String>> sourceUrls, Optional<List<Long>> evidenceIds,
+                            Optional<String> targetAgencyType, Optional<String> additionalNotes,
+                            String documentUrl) {
         if (incidentDate != null) {
-            this.incidentDate = incidentDate;
+            this.incidentDate = incidentDate.orElse(null);
         }
         if (discoveryRoute != null) {
-            this.discoveryRoute = discoveryRoute;
+            this.discoveryRoute = discoveryRoute.orElse(null);
         }
         if (damageType != null) {
-            this.damageType = damageType;
+            this.damageType = damageType.orElse(null);
         }
         if (description != null) {
             this.description = description;
         }
         if (sourceUrls != null) {
-            this.sourceUrls = sourceUrls;
+            this.sourceUrls = new ArrayList<>(sourceUrls.orElse(List.of()));
         }
         if (evidenceIds != null) {
-            this.evidenceIds = evidenceIds;
+            this.evidenceIds = new ArrayList<>(evidenceIds.orElse(List.of()));
         }
         if (targetAgencyType != null) {
-            this.targetAgencyType = targetAgencyType;
+            this.targetAgencyType = targetAgencyType.orElse(null);
+        }
+        if (additionalNotes != null) {
+            this.additionalNotes = additionalNotes.orElse(null);
         }
         this.documentUrl = documentUrl;
         this.timeline.add(TimelineEntry.builder().event(TimelineEvent.UPDATED).occurredAt(LocalDateTime.now()).build());
