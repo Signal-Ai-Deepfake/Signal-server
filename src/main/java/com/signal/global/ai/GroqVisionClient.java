@@ -14,8 +14,8 @@ import org.springframework.web.client.RestClient;
  * {@link com.signal.domain.chat.engine.GroqChatClient}와 같은 Groq 계정(GROQ_API_KEY)을 쓰되,
  * 모델만 비전 지원 모델(vision.llm.model)로 별도 설정한다.
  *
- * 참고: 2026-09 기준 Groq에서 이미지 입력을 지원하는 모델은 qwen/qwen3.6-27b, qwen/qwen3.8-27b
- * 정도이며(둘 다 Preview), 과거 비전을 지원하던 Llama 4 Scout/Maverick 계열은 이미 폐기되었다.
+ * 참고: 2026-10 기준 Groq에서 이미지 입력을 지원하는 모델은 qwen/qwen3.8-27b 정도다. 이전 기본값이던
+ * qwen/qwen3.6-27b는 2026-09-14에 종료되었고, 과거 비전을 지원하던 Llama 4 Scout/Maverick 계열도 이미 폐기되었다.
  * https://console.groq.com/docs/vision
  */
 @Component
@@ -30,7 +30,7 @@ public class GroqVisionClient implements VisionCompletionClient {
             RestClient.Builder restClientBuilder,
             @Value("${chat.llm.base-url:https://api.groq.com/openai/v1}") String baseUrl,
             @Value("${chat.llm.api-key:}") String apiKey,
-            @Value("${vision.llm.model:qwen/qwen3.6-27b}") String model,
+            @Value("${vision.llm.model:qwen/qwen3.8-27b}") String model,
             @Value("${vision.llm.max-completion-tokens:2048}") int maxCompletionTokens) {
         this.apiKey = apiKey;
         this.model = model;
