@@ -63,6 +63,12 @@ public class DeepfakeDetection {
      */
     private Boolean fallbackUsed;
 
+    /**
+     * status가 FAILED일 때의 실패 사유. 그 외 상태에서는 null.
+     */
+    @Enumerated(EnumType.STRING)
+    private DetectionFailureReason failureReason;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -94,7 +100,8 @@ public class DeepfakeDetection {
         this.fallbackUsed = fallbackUsed;
     }
 
-    public void fail() {
+    public void fail(DetectionFailureReason failureReason) {
         this.status = DeepfakeDetectionStatus.FAILED;
+        this.failureReason = failureReason;
     }
 }

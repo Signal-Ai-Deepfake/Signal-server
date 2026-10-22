@@ -2,6 +2,7 @@ package com.signal.domain.deepfakedetection.dto.response;
 
 import com.signal.domain.deepfakedetection.entity.DeepfakeDetection;
 import com.signal.domain.deepfakedetection.entity.DeepfakeDetectionStatus;
+import com.signal.domain.deepfakedetection.entity.DetectionFailureReason;
 import com.signal.domain.deepfakedetection.entity.Verdict;
 import java.util.List;
 
@@ -13,7 +14,8 @@ public record DeepfakeDetectionResponse(
         Integer riskScore,
         List<EvidenceResponse> evidences,
         String highlightedResultUrl,
-        Boolean fallbackUsed
+        Boolean fallbackUsed,
+        DetectionFailureReason failureReason
 ) {
 
     public static DeepfakeDetectionResponse from(DeepfakeDetection detection) {
@@ -25,6 +27,7 @@ public record DeepfakeDetectionResponse(
                 detection.getRiskScore(),
                 detection.getEvidences().stream().map(EvidenceResponse::from).toList(),
                 detection.getHighlightedResultUrl(),
-                detection.getFallbackUsed());
+                detection.getFallbackUsed(),
+                detection.getFailureReason());
     }
 }

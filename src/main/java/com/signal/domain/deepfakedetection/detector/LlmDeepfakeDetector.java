@@ -1,6 +1,7 @@
 package com.signal.domain.deepfakedetection.detector;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.signal.domain.deepfakedetection.entity.DetectionFailureReason;
 import com.signal.domain.deepfakedetection.entity.Evidence;
 import com.signal.domain.deepfakedetection.entity.Region;
 import com.signal.domain.deepfakedetection.entity.Verdict;
@@ -10,6 +11,8 @@ import com.signal.global.ai.VisionCompletionClient;
 import com.signal.global.file.FileStorage;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.net.SocketTimeoutException;
+import java.net.http.HttpTimeoutException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.imageio.ImageIO;
@@ -56,7 +59,11 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
               evidences에 담으세요.
             - 아래 JSON 형식으로만 답하세요. 코드블록이나 다른 설명 없이 순수 JSON만 출력하세요.
 
+            - 이미지에 사람 얼굴이 하나도 없으면 faceDetected를 false로 하고, 나머지 필드는 verdict "REAL",
+              confidence 0, riskScore 0, evidences 빈 배열로 채우세요.
+
             {
+              "faceDetected": true 또는 false,
               "verdict": "REAL" 또는 "SUSPICIOUS" 또는 "FAKE",
               "confidence": 0.0~1.0 사이 소수 (당신 판단의 확신도),
               "riskScore": 0~100 사이 정수 (높을수록 합성·조작 가능성이 높음),
@@ -100,9 +107,14 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
     @Override
     @Async
     public void detect(Long detectionId, String fileUrl, boolean isVideo) {
-        if (!llmEnabled || isVideo) {
-            log.info("딥페이크 탐지를 수행하지 않습니다(영상이거나 LLM 비활성화): detectionId={}", detectionId);
-            fallbackDetector.markFailed(detectionId);
+        if (isVideo) {
+            log.info("영상은 딥페이크 탐지를 지원하지 않습니다: detectionId={}", detectionId);
+            fallbackDetector.markFailed(detectionId, DetectionFailureReason.VIDEO_NOT_SUPPORTED);
+            return;
+        }
+        if (!llmEnabled) {
+            log.info("비전 LLM이 비활성화되어 딥페이크 탐지를 수행하지 않습니다: detectionId={}", detectionId);
+            fallbackDetector.markFailed(detectionId, DetectionFailureReason.AI_SERVER_ERROR);
             return;
         }
         try {
@@ -112,6 +124,11 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
 
             String rawResponse = visionCompletionClient.complete(content, mimeType, SYSTEM_PROMPT, USER_PROMPT);
             VisionDeepfakeAssessment parsed = parseResponse(rawResponse);
+            if (Boolean.FALSE.equals(parsed.faceDetected())) {
+                log.info("비전 LLM이 얼굴을 검출하지 못했습니다: detectionId={}", detectionId);
+                fallbackDetector.markFailed(detectionId, DetectionFailureReason.NO_FACE_DETECTED);
+                return;
+            }
 
             Verdict verdict = toVerdict(parsed.verdict(), parsed.riskScore());
             double confidence = clampConfidence(parsed.confidence());
@@ -123,9 +140,21 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
             fallbackDetector.markCompleted(
                     detectionId, verdict, confidence, riskScore, evidences, highlightedResultUrl, false);
         } catch (Exception e) {
-            log.warn("LLM 딥페이크 탐지 실패, 분석하지 못함으로 처리합니다: detectionId={}", detectionId, e);
-            fallbackDetector.markFailed(detectionId);
+            DetectionFailureReason reason = isTimeout(e)
+                    ? DetectionFailureReason.TIMEOUT
+                    : DetectionFailureReason.AI_SERVER_ERROR;
+            log.warn("LLM 딥페이크 탐지 실패, 분석하지 못함으로 처리합니다: detectionId={}, reason={}", detectionId, reason, e);
+            fallbackDetector.markFailed(detectionId, reason);
         }
+    }
+
+    private boolean isTimeout(Throwable e) {
+        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SocketTimeoutException || cause instanceof HttpTimeoutException) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Verdict toVerdict(String rawVerdict, int riskScore) {
@@ -231,6 +260,7 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
     }
 
     private record VisionDeepfakeAssessment(
+            Boolean faceDetected,
             String verdict,
             double confidence,
             int riskScore,

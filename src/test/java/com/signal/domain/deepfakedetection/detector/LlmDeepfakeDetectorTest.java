@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.signal.domain.deepfakedetection.entity.DeepfakeDetection;
 import com.signal.domain.deepfakedetection.entity.DeepfakeDetectionStatus;
+import com.signal.domain.deepfakedetection.entity.DetectionFailureReason;
 import com.signal.domain.deepfakedetection.entity.Verdict;
 import com.signal.domain.deepfakedetection.repository.DeepfakeDetectionRepository;
 import com.signal.global.ai.VisionCompletionClient;
@@ -17,8 +18,10 @@ import com.signal.global.file.FileStorage;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.util.Optional;
 import javax.imageio.ImageIO;
+import org.springframework.web.client.ResourceAccessException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -91,6 +94,36 @@ class LlmDeepfakeDetectorTest {
         assertThat(detection.getEvidences().get(0).getFrame()).isNull();
         assertThat(detection.getHighlightedResultUrl()).isEqualTo("/uploads/deepfake-detections/highlighted.png");
         assertThat(detection.getFallbackUsed()).isFalse();
+        assertThat(detection.getFailureReason()).isNull();
+    }
+
+    @Test
+    void 얼굴이_없다고_응답하면_NO_FACE_DETECTED로_실패_처리한다() throws IOException {
+        DeepfakeDetection detection = sampleDetection();
+        when(deepfakeDetectionRepository.findById(1L)).thenReturn(Optional.of(detection));
+        when(fileStorage.load(anyString())).thenReturn(samplePngBytes());
+        when(visionCompletionClient.complete(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn("{\"faceDetected\": false, \"verdict\": \"REAL\", \"confidence\": 0, \"riskScore\": 0, \"evidences\": []}");
+
+        detector.detect(1L, "/uploads/deepfake-detections/original.png", false);
+
+        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.FAILED);
+        assertThat(detection.getFailureReason()).isEqualTo(DetectionFailureReason.NO_FACE_DETECTED);
+        assertThat(detection.getVerdict()).isNull();
+    }
+
+    @Test
+    void LLM_호출이_시간초과되면_TIMEOUT으로_실패_처리한다() throws IOException {
+        DeepfakeDetection detection = sampleDetection();
+        when(deepfakeDetectionRepository.findById(1L)).thenReturn(Optional.of(detection));
+        when(fileStorage.load(anyString())).thenReturn(samplePngBytes());
+        when(visionCompletionClient.complete(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenThrow(new ResourceAccessException("I/O error", new SocketTimeoutException("Read timed out")));
+
+        detector.detect(1L, "/uploads/deepfake-detections/original.png", false);
+
+        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.FAILED);
+        assertThat(detection.getFailureReason()).isEqualTo(DetectionFailureReason.TIMEOUT);
     }
 
     @Test
@@ -101,6 +134,7 @@ class LlmDeepfakeDetectorTest {
         detector.detect(1L, "/uploads/deepfake-detections/original.mp4", true);
 
         assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.FAILED);
+        assertThat(detection.getFailureReason()).isEqualTo(DetectionFailureReason.VIDEO_NOT_SUPPORTED);
         assertThat(detection.getVerdict()).isNull();
         verify(visionCompletionClient, never()).complete(any(), any(), any(), any());
     }
@@ -116,6 +150,7 @@ class LlmDeepfakeDetectorTest {
         detector.detect(1L, "/uploads/deepfake-detections/original.png", false);
 
         assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.FAILED);
+        assertThat(detection.getFailureReason()).isEqualTo(DetectionFailureReason.AI_SERVER_ERROR);
         assertThat(detection.getVerdict()).isNull();
     }
 

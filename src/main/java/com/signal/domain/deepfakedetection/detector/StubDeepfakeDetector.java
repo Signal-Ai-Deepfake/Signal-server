@@ -1,5 +1,6 @@
 package com.signal.domain.deepfakedetection.detector;
 
+import com.signal.domain.deepfakedetection.entity.DetectionFailureReason;
 import com.signal.domain.deepfakedetection.entity.Evidence;
 import com.signal.domain.deepfakedetection.entity.Region;
 import com.signal.domain.deepfakedetection.entity.Verdict;
@@ -61,10 +62,10 @@ public class StubDeepfakeDetector implements DeepfakeDetector {
             markCompleted(detectionId, verdict, confidence, riskScore, evidences, highlightedResultUrl, true);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            markFailed(detectionId);
+            markFailed(detectionId, DetectionFailureReason.AI_SERVER_ERROR);
         } catch (Exception e) {
             log.error("딥페이크 탐지 실패: detectionId={}", detectionId, e);
-            markFailed(detectionId);
+            markFailed(detectionId, DetectionFailureReason.AI_SERVER_ERROR);
         }
     }
 
@@ -120,9 +121,9 @@ public class StubDeepfakeDetector implements DeepfakeDetector {
         });
     }
 
-    void markFailed(Long detectionId) {
+    void markFailed(Long detectionId, DetectionFailureReason failureReason) {
         deepfakeDetectionRepository.findById(detectionId).ifPresent(detection -> {
-            detection.fail();
+            detection.fail(failureReason);
             deepfakeDetectionRepository.save(detection);
         });
     }
