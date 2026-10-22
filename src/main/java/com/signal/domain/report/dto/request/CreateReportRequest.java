@@ -10,6 +10,7 @@ public record CreateReportRequest(
         String description,
         List<String> sourceUrls,
         List<Long> evidenceIds,
-        String targetAgencyType
+        String targetAgencyType,
+        String additionalNotes
 ) {
 }

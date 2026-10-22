@@ -14,6 +14,7 @@ import com.signal.global.file.FileStorage;
 import com.signal.global.file.UploadFileValidator;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -52,6 +53,7 @@ public class ReportService {
                 .sourceUrls(request.sourceUrls())
                 .evidenceIds(request.evidenceIds() != null ? request.evidenceIds() : List.of())
                 .targetAgencyType(request.targetAgencyType())
+                .additionalNotes(request.additionalNotes())
                 .documentUrl(documentUrl)
                 .build();
 
@@ -70,13 +72,16 @@ public class ReportService {
     public Report updateReport(Long userId, Long reportId, UpdateReportRequest request) {
         Report report = getOwnedReport(userId, reportId);
         validateDraft(report);
-        validateEvidenceOwnership(userId, request.evidenceIds());
+        String description = validatePatchDescription(request.getDescription());
+        if (request.getEvidenceIds() != null) {
+            validateEvidenceOwnership(userId, request.getEvidenceIds().orElse(null));
+        }
 
         String documentUrl = reportDocumentGenerator.generate(ReportStatus.DRAFT);
         report.applyPatch(
-                request.incidentDate(), request.discoveryRoute(), request.damageType(),
-                request.description(), request.sourceUrls(), request.evidenceIds(),
-                request.targetAgencyType(), documentUrl);
+                request.getIncidentDate(), request.getDiscoveryRoute(), request.getDamageType(),
+                description, request.getSourceUrls(), request.getEvidenceIds(),
+                request.getTargetAgencyType(), request.getAdditionalNotes(), documentUrl);
 
         return report;
     }
@@ -142,6 +147,17 @@ public class ReportService {
         if (report.getStatus() != ReportStatus.DRAFT) {
             throw new SignalException(ErrorCode.REPORT_ALREADY_FINALIZED);
         }
+    }
+
+    /** description은 필수값이라 PATCH로 지울 수 없다. 보내지 않았으면 null(변경 없음)을 반환한다. */
+    private String validatePatchDescription(Optional<String> description) {
+        if (description == null) {
+            return null;
+        }
+        if (description.isEmpty() || !StringUtils.hasText(description.get())) {
+            throw new SignalException(ErrorCode.REQUIRED_FIELD_MISSING);
+        }
+        return description.get();
     }
 
     private void validateRequired(String description, List<String> sourceUrls) {

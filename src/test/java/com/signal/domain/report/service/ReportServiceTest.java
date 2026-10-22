@@ -59,7 +59,8 @@ class ReportServiceTest {
                 "SNS에 합성 이미지가 유포되었습니다.",
                 List.of("https://example.com/post/1"),
                 List.of(10L, 11L),
-                "경찰청");
+                "경찰청",
+                "가해자 계정 정보도 함께 전달 부탁드립니다.");
     }
 
     @Test
@@ -75,6 +76,7 @@ class ReportServiceTest {
         assertThat(report.getUserId()).isEqualTo(1L);
         assertThat(report.getStatus()).isEqualTo(ReportStatus.DRAFT);
         assertThat(report.getDocumentUrl()).isEqualTo("https://stub/draft.pdf");
+        assertThat(report.getAdditionalNotes()).isEqualTo("가해자 계정 정보도 함께 전달 부탁드립니다.");
         assertThat(report.getTimeline()).hasSize(1);
         assertThat(report.getTimeline().get(0).getEvent()).isEqualTo(TimelineEvent.CREATED);
     }
@@ -111,7 +113,7 @@ class ReportServiceTest {
         when(reportEvidenceRepository.findAllById(any())).thenReturn(List.of(
                 ReportEvidence.builder().userId(2L).fileUrl("/uploads/b.png").build()));
 
-        UpdateReportRequest request = new UpdateReportRequest(null, null, null, null, null, List.of(99L), null);
+        UpdateReportRequest request = new UpdateReportRequest(null, null, null, null, null, Optional.of(List.of(99L)), null, null);
 
         assertThatThrownBy(() -> reportService.updateReport(1L, 1L, request))
                 .isInstanceOf(SignalException.class)
@@ -121,7 +123,7 @@ class ReportServiceTest {
     @Test
     void 설명이_없으면_REQUIRED_FIELD_MISSING_예외가_발생한다() {
         CreateReportRequest request = new CreateReportRequest(
-                null, null, null, " ", List.of("https://example.com/post/1"), null, null);
+                null, null, null, " ", List.of("https://example.com/post/1"), null, null, null);
 
         assertThatThrownBy(() -> reportService.createReport(1L, request))
                 .isInstanceOf(SignalException.class)
@@ -131,7 +133,7 @@ class ReportServiceTest {
     @Test
     void sourceUrls가_없으면_REQUIRED_FIELD_MISSING_예외가_발생한다() {
         CreateReportRequest request = new CreateReportRequest(
-                null, null, null, "설명입니다.", List.of(), null, null);
+                null, null, null, "설명입니다.", List.of(), null, null, null);
 
         assertThatThrownBy(() -> reportService.createReport(1L, request))
                 .isInstanceOf(SignalException.class)
@@ -180,7 +182,7 @@ class ReportServiceTest {
         when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
         when(reportDocumentGenerator.generate(ReportStatus.DRAFT)).thenReturn("https://stub/draft-v2.pdf");
 
-        UpdateReportRequest request = new UpdateReportRequest(null, null, null, "수정된 설명", null, null, null);
+        UpdateReportRequest request = new UpdateReportRequest(null, null, null, Optional.of("수정된 설명"), null, null, null, null);
         Report updated = reportService.updateReport(1L, 1L, request);
 
         assertThat(updated.getDescription()).isEqualTo("수정된 설명");
@@ -192,6 +194,40 @@ class ReportServiceTest {
     }
 
     @Test
+    void 빈_Optional로_보낸_필드는_값이_지워진다() {
+        Report report = Report.builder()
+                .userId(1L).discoveryRoute("인스타그램").damageType("도용").description("원본 설명")
+                .sourceUrls(List.of("https://a")).evidenceIds(List.of()).targetAgencyType("경찰청")
+                .additionalNotes("메모").documentUrl("https://stub/draft-v1.pdf").build();
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
+        when(reportDocumentGenerator.generate(ReportStatus.DRAFT)).thenReturn("https://stub/draft-v2.pdf");
+
+        UpdateReportRequest request = new UpdateReportRequest(
+                null, Optional.empty(), null, null, Optional.empty(), null, null, Optional.empty());
+        Report updated = reportService.updateReport(1L, 1L, request);
+
+        assertThat(updated.getDiscoveryRoute()).isNull();
+        assertThat(updated.getSourceUrls()).isEmpty();
+        assertThat(updated.getAdditionalNotes()).isNull();
+        assertThat(updated.getDamageType()).isEqualTo("도용");
+        assertThat(updated.getTargetAgencyType()).isEqualTo("경찰청");
+        assertThat(updated.getDescription()).isEqualTo("원본 설명");
+    }
+
+    @Test
+    void 설명을_지우려고_하면_REQUIRED_FIELD_MISSING_예외가_발생한다() {
+        Report report = Report.builder()
+                .userId(1L).description("설명").sourceUrls(List.of("https://a")).evidenceIds(List.of())
+                .documentUrl("https://stub/draft.pdf").build();
+        when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
+
+        assertThatThrownBy(() -> reportService.updateReport(1L, 1L, new UpdateReportRequest(
+                        null, null, null, Optional.empty(), null, null, null, null)))
+                .isInstanceOf(SignalException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REQUIRED_FIELD_MISSING);
+    }
+
+    @Test
     void 확정된_신고서는_수정할_수_없다() {
         Report report = Report.builder()
                 .userId(1L).description("설명").sourceUrls(List.of("https://a")).evidenceIds(List.of())
@@ -200,7 +236,7 @@ class ReportServiceTest {
         when(reportRepository.findById(1L)).thenReturn(Optional.of(report));
 
         assertThatThrownBy(() -> reportService.updateReport(1L, 1L, new UpdateReportRequest(
-                        null, null, null, "수정 시도", null, null, null)))
+                        null, null, null, Optional.of("수정 시도"), null, null, null, null)))
                 .isInstanceOf(SignalException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REPORT_ALREADY_FINALIZED);
     }
