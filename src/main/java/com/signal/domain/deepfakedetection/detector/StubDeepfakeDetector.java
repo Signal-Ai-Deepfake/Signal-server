@@ -18,7 +18,7 @@ import org.springframework.scheduling.annotation.Async;
  *
  * 더 이상 Spring 빈으로 직접 등록되지 않는다({@link LlmDeepfakeDetector} 참고). LlmDeepfakeDetector가
  * 이 클래스를 내부적으로 (1) 영상 입력(비전 LLM 미지원) (2) LLM 미설정/호출 실패 시의 폴백으로 사용하며,
- * verdict 산출({@link #toVerdict})과 완료/실패 처리({@link #markCompleted}/{@link #markFailed})도 그대로 재사용한다.
+ * verdict 산출({@link Verdict#fromRiskScore})과 완료/실패 처리({@link #markCompleted}/{@link #markFailed})도 그대로 재사용한다.
  *
  * DeepfakeDetectionService(→DeepfakeDetector) 의존 방향의 순환을 피하기 위해 완료/실패
  * 처리 시 DeepfakeDetectionService가 아닌 DeepfakeDetectionRepository에 직접 접근한다.
@@ -52,7 +52,7 @@ public class StubDeepfakeDetector implements DeepfakeDetector {
             int seed = Math.abs(Arrays.hashCode(content));
 
             int riskScore = seed % 101;
-            Verdict verdict = toVerdict(riskScore);
+            Verdict verdict = Verdict.fromRiskScore(riskScore);
             double confidence = Math.round((0.5 + (seed % 50) / 100.0) * 100) / 100.0;
             List<Evidence> evidences = buildEvidences(seed, isVideo);
             String highlightedResultUrl = fileStorage.store(content, "highlighted.png", HIGHLIGHTED_RESULT_DIRECTORY);
@@ -66,16 +66,6 @@ public class StubDeepfakeDetector implements DeepfakeDetector {
             log.error("딥페이크 탐지 실패: detectionId={}", detectionId, e);
             markFailed(detectionId);
         }
-    }
-
-    Verdict toVerdict(int riskScore) {
-        if (riskScore < 30) {
-            return Verdict.REAL;
-        }
-        if (riskScore <= 70) {
-            return Verdict.SUSPICIOUS;
-        }
-        return Verdict.FAKE;
     }
 
     private List<Evidence> buildEvidences(int seed, boolean isVideo) {

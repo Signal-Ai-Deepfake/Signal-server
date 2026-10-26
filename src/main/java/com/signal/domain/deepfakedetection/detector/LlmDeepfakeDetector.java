@@ -139,7 +139,7 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
                 // 아래 riskScore 기반 폴백으로 진행
             }
         }
-        return fallbackDetector.toVerdict(clampScore(riskScore));
+        return Verdict.fromRiskScore(clampScore(riskScore));
     }
 
     private List<Evidence> toEvidences(List<VisionEvidence> rawEvidences, int[] pixelSize) {
