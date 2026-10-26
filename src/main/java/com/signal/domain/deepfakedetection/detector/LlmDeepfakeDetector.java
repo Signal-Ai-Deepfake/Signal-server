@@ -113,6 +113,9 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
             String rawResponse = visionCompletionClient.complete(content, mimeType, SYSTEM_PROMPT, USER_PROMPT);
             VisionDeepfakeAssessment parsed = parseResponse(rawResponse);
 
+            if (parsed.riskScore() == null || parsed.confidence() == null) {
+                throw new IllegalStateException("LLM 응답에 riskScore/confidence가 없습니다.");
+            }
             Verdict verdict = toVerdict(parsed.verdict(), parsed.riskScore());
             double confidence = clampConfidence(parsed.confidence());
             int riskScore = clampScore(parsed.riskScore());
@@ -232,8 +235,8 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
 
     private record VisionDeepfakeAssessment(
             String verdict,
-            double confidence,
-            int riskScore,
+            Double confidence,
+            Integer riskScore,
             List<VisionEvidence> evidences) {
     }
 
