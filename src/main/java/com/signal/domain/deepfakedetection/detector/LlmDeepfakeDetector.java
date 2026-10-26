@@ -116,7 +116,7 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
             if (parsed.riskScore() == null || parsed.confidence() == null) {
                 throw new IllegalStateException("LLM 응답에 riskScore/confidence가 없습니다.");
             }
-            Verdict verdict = toVerdict(parsed.verdict(), parsed.riskScore());
+            Verdict verdict = toVerdict(detectionId, parsed.verdict(), parsed.riskScore());
             double confidence = clampConfidence(parsed.confidence());
             int riskScore = clampScore(parsed.riskScore());
             List<Evidence> evidences = toEvidences(parsed.evidences(), pixelSize);
@@ -131,15 +131,17 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
         }
     }
 
-    private Verdict toVerdict(String rawVerdict, int riskScore) {
-        if (rawVerdict != null) {
-            try {
-                return Verdict.valueOf(rawVerdict.trim().toUpperCase());
-            } catch (IllegalArgumentException ignored) {
-                // 아래 riskScore 기반 폴백으로 진행
-            }
+    /**
+     * verdict와 riskScore를 LLM이 따로 말하면 서로 어긋날 수 있으므로(예: REAL인데 riskScore 80),
+     * 최종 verdict는 항상 riskScore 구간으로 정하고 LLM의 verdict와 다르면 경고만 남긴다.
+     */
+    private Verdict toVerdict(Long detectionId, String rawVerdict, int riskScore) {
+        Verdict byScore = Verdict.fromRiskScore(clampScore(riskScore));
+        if (rawVerdict == null || !byScore.name().equalsIgnoreCase(rawVerdict.trim())) {
+            log.warn("LLM verdict가 riskScore 구간과 달라 riskScore 기준으로 판정합니다: detectionId={}, llmVerdict={}, riskScore={}, verdict={}",
+                    detectionId, rawVerdict, riskScore, byScore);
         }
-        return Verdict.fromRiskScore(clampScore(riskScore));
+        return byScore;
     }
 
     private List<Evidence> toEvidences(List<VisionEvidence> rawEvidences, int[] pixelSize) {
