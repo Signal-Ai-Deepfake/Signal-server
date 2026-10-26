@@ -120,6 +120,23 @@ class LlmDeepfakeDetectorTest {
     }
 
     @Test
+    void LLM_응답에_riskScore가_없으면_0점_안전으로_처리하지_않고_실패_처리한다() throws IOException {
+        DeepfakeDetection detection = sampleDetection();
+        when(deepfakeDetectionRepository.findById(1L)).thenReturn(Optional.of(detection));
+        when(fileStorage.load(anyString())).thenReturn(samplePngBytes());
+        when(visionCompletionClient.complete(any(byte[].class), anyString(), anyString(), anyString()))
+                .thenReturn("""
+                        {"verdict": "REAL", "confidence": 0.9, "evidences": []}
+                        """);
+
+        detector.detect(1L, "/uploads/deepfake-detections/original.png", false);
+
+        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.FAILED);
+        assertThat(detection.getVerdict()).isNull();
+        assertThat(detection.getRiskScore()).isNull();
+    }
+
+    @Test
     void vision_llm_비활성화면_LLM을_호출하지_않는다() throws IOException {
         LlmDeepfakeDetector disabledDetector = new LlmDeepfakeDetector(
                 fileStorage, deepfakeDetectionRepository, visionCompletionClient, objectMapper, 0, false);
