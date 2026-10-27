@@ -162,4 +162,38 @@ class GroqChatClientTest {
         assertThatThrownBy(() -> client.complete("안녕", SituationType.GENERAL, List.of()))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    @Test
+    void finish_reason이_length면_잘린_답변을_반환하지_않고_예외를_던진다() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400, "low");
+
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andRespond(withSuccess(
+                        """
+                        {"choices":[{"message":{"role":"assistant","content":"如果您遇到侵犯隐私或其他不当内容"},"finish_reason":"length"}]}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.complete("举报方法", SituationType.GENERAL, List.of()))
+                .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test
+    void finish_reason이_stop이면_답변을_그대로_반환한다() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400, "low");
+
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andRespond(withSuccess(
+                        """
+                        {"choices":[{"message":{"role":"assistant","content":"请保存证据后向平台举报。"},"finish_reason":"stop"}]}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.complete("举报方法", SituationType.GENERAL, List.of())).isEqualTo("请保存证据后向平台举报。");
+        server.verify();
+    }
 }
