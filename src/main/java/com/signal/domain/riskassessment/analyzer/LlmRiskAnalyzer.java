@@ -12,6 +12,8 @@ import com.signal.global.ai.LlmJsonExtractor;
 import com.signal.global.ai.VisionCompletionClient;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
+import com.signal.global.i18n.LanguageContext;
+import com.signal.global.i18n.ResponseLanguage;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -98,8 +100,10 @@ public class LlmRiskAnalyzer implements RiskAnalyzer {
         int[] pixelSize = readPixelSize(content);
         boolean hasGpsMetadata = hasGpsMetadata(content);
 
+        ResponseLanguage language = LanguageContext.current();
         String userPrompt = buildUserPrompt(pixelSize);
-        String rawResponse = visionCompletionClient.complete(content, image.getContentType(), SYSTEM_PROMPT, userPrompt);
+        String rawResponse = visionCompletionClient.complete(
+                content, image.getContentType(), SYSTEM_PROMPT + language.promptInstruction(), userPrompt);
         VisionRiskAssessment parsed = parseResponse(rawResponse);
 
         if (!parsed.faceDetected()) {
@@ -107,7 +111,7 @@ public class LlmRiskAnalyzer implements RiskAnalyzer {
             return RiskAnalysisResult.faceNotDetected(false);
         }
 
-        List<RiskFactor> factors = buildFactors(parsed, hasGpsMetadata);
+        List<RiskFactor> factors = buildFactors(parsed, hasGpsMetadata, language);
         int overallScore = (int) Math.round(
                 factors.stream().mapToInt(RiskFactor::getScore).average().orElse(0));
         RiskLevel riskLevel = RiskLevel.fromScore(overallScore);
@@ -117,42 +121,41 @@ public class LlmRiskAnalyzer implements RiskAnalyzer {
         return new RiskAnalysisResult(true, riskLevel, overallScore, factors, recommendations, List.of(face), false);
     }
 
-    private List<RiskFactor> buildFactors(VisionRiskAssessment parsed, boolean hasGpsMetadata) {
+    private List<RiskFactor> buildFactors(
+            VisionRiskAssessment parsed, boolean hasGpsMetadata, ResponseLanguage language) {
         int metadataLeakScore = hasGpsMetadata ? 85 : 10;
-        String metadataLeakDescription = hasGpsMetadata
-                ? "이미지 파일에 촬영 위치(GPS) 정보가 포함되어 있어 노출 위험이 높습니다."
-                : "이미지 파일에서 위치(GPS) 메타데이터가 발견되지 않았습니다.";
+        String metadataLeakDescription = RiskTexts.metadataDescription(hasGpsMetadata, language);
 
         return List.of(
                 RiskFactor.builder()
                         .type("IMAGE_QUALITY")
-                        .label("이미지 품질")
+                        .label(RiskTexts.label(RiskTexts.IMAGE_QUALITY, language, "이미지 품질"))
                         .score(clampScore(parsed.imageQualityScore()))
-                        .description(withScore(parsed.imageQualityNote(), clampScore(parsed.imageQualityScore())))
+                        .description(withScore(parsed.imageQualityNote(), clampScore(parsed.imageQualityScore()), language))
                         .build(),
                 RiskFactor.builder()
                         .type("FACE_EXPOSURE")
-                        .label("얼굴 노출도")
+                        .label(RiskTexts.label(RiskTexts.FACE_EXPOSURE, language, "얼굴 노출도"))
                         .score(clampScore(parsed.faceExposureScore()))
-                        .description(withScore(parsed.faceExposureNote(), clampScore(parsed.faceExposureScore())))
+                        .description(withScore(parsed.faceExposureNote(), clampScore(parsed.faceExposureScore()), language))
                         .build(),
                 RiskFactor.builder()
                         .type("METADATA_LEAK")
-                        .label("메타데이터 노출")
+                        .label(RiskTexts.label(RiskTexts.METADATA_LEAK, language, "메타데이터 노출"))
                         .score(metadataLeakScore)
-                        .description(withScore(metadataLeakDescription, metadataLeakScore))
+                        .description(withScore(metadataLeakDescription, metadataLeakScore, language))
                         .build(),
                 RiskFactor.builder()
                         .type("REVERSE_SEARCH_RISK")
-                        .label("역검색 노출 위험")
+                        .label(RiskTexts.label(RiskTexts.REVERSE_SEARCH_RISK, language, "역검색 노출 위험"))
                         .score(clampScore(parsed.reverseSearchRiskScore()))
-                        .description(withScore(parsed.reverseSearchRiskNote(), clampScore(parsed.reverseSearchRiskScore())))
+                        .description(withScore(parsed.reverseSearchRiskNote(), clampScore(parsed.reverseSearchRiskScore()), language))
                         .build());
     }
 
-    private String withScore(String note, int score) {
-        String safeNote = (note == null || note.isBlank()) ? "AI 분석 결과" : note.trim();
-        return safeNote + " (점수: " + score + ")";
+    private String withScore(String note, int score, ResponseLanguage language) {
+        String safeNote = (note == null || note.isBlank()) ? RiskTexts.defaultNote(language) : note.trim();
+        return RiskTexts.withScore(safeNote, score, language);
     }
 
     private DetectedFace buildFace(VisionRiskAssessment parsed, int[] pixelSize) {

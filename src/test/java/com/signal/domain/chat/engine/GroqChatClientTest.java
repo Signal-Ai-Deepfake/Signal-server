@@ -2,13 +2,18 @@ package com.signal.domain.chat.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.jsonPath;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import com.signal.global.i18n.LanguageContext;
+import com.signal.global.i18n.ResponseLanguage;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
@@ -18,6 +23,49 @@ import org.springframework.web.client.RestClient;
 class GroqChatClientTest {
 
     private static final String BASE_URL = "https://api.groq.com/openai/v1";
+
+    @AfterEach
+    void clearLanguage() {
+        LanguageContext.clear();
+    }
+
+    @Test
+    void 요청_언어가_일본어면_system_메시지에_일본어_응답_지시를_더한다() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400);
+        LanguageContext.set(ResponseLanguage.JA);
+
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.messages[0].role").value("system"))
+                .andExpect(jsonPath("$.messages[0].content", containsString("Japanese")))
+                .andRespond(withSuccess(
+                        """
+                        {"choices":[{"message":{"role":"assistant","content":"こんにちは"}}]}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.complete("안녕하세요", SituationType.GENERAL, List.of())).isEqualTo("こんにちは");
+        server.verify();
+    }
+
+    @Test
+    void 언어가_지정되지_않으면_system_메시지에_언어_지시를_더하지_않는다() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400);
+
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.messages[0].content", not(containsString("[Response language]"))))
+                .andRespond(withSuccess(
+                        """
+                        {"choices":[{"message":{"role":"assistant","content":"안녕하세요"}}]}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.complete("안녕하세요", SituationType.GENERAL, List.of())).isEqualTo("안녕하세요");
+        server.verify();
+    }
 
     @Test
     void 정상_응답이면_choices의_첫_메시지_content를_반환한다() {

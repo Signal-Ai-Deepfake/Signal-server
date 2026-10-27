@@ -6,6 +6,7 @@ import com.signal.domain.riskassessment.entity.RiskFactor;
 import com.signal.domain.riskassessment.entity.RiskLevel;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
+import com.signal.global.i18n.LanguageContext;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,26 +73,11 @@ public class StubRiskAnalyzer implements RiskAnalyzer {
     }
 
     List<String> buildRecommendations(RiskLevel riskLevel) {
-        return switch (riskLevel) {
-            case HIGH -> List.of(
-                    "해당 이미지의 공개 게시를 자제하세요.",
-                    "이미지 보호 처리(노이즈 삽입) 기능을 이용해 도용 위험을 낮추세요.",
-                    "정기적으로 얼굴 모니터링을 신청해 무단 사용 여부를 추적하세요.");
-            case MEDIUM -> List.of(
-                    "이미지 공개 범위를 지인으로 한정하는 것을 권장합니다.",
-                    "이미지 보호 처리 기능을 검토해보세요.");
-            case LOW -> List.of("특별한 조치 없이도 안전한 수준이지만, 정기적인 점검을 권장합니다.");
-        };
+        return RiskTexts.recommendations(riskLevel, LanguageContext.current());
     }
 
     private String toLabel(String type) {
-        return switch (type) {
-            case "IMAGE_QUALITY" -> "이미지 품질";
-            case "FACE_EXPOSURE" -> "얼굴 노출도";
-            case "METADATA_LEAK" -> "메타데이터 노출";
-            case "REVERSE_SEARCH_RISK" -> "역검색 노출 위험";
-            default -> type;
-        };
+        return RiskTexts.label(type, LanguageContext.current(), type);
     }
 
     private String toDescription(String type, int score) {

@@ -96,3 +96,54 @@ AI 도구가 생성한 결과물은 팀원이 직접 검토하고 수정한 뒤 
 
 - API 키(`GROQ_API_KEY`)는 코드에 포함하지 않고 환경변수로 주입하며, `.env` 등 민감 설정 파일은 저장소에 커밋하지 않습니다.
 - 인증·인가는 JWT + Spring Security로 처리하며, 비로그인 사용자의 딥페이크 탐지는 5회로 제한합니다.
+
+
+## 응답 언어 (Accept-Language)
+
+모든 API 요청의 `Accept-Language` 헤더로 응답 언어를 정한다. 지원 값은 `ko`, `en`, `ja`, `zh-CN`이며, 헤더가 없거나 지원하지 않는 언어(번체 중국어 포함)이면 한국어를 사용한다. `en-US`, `ja-JP`처럼 지역이 붙은 값과 `q` 선호도 순서도 처리한다.
+
+| 대상 | 동작 |
+|---|---|
+| 위험도 분석 (`POST /api/v1/risk-assessments`) | AI가 쓰는 `factors[].description`과 정형 문구 `recommendations`가 요청 언어로 생성된다. |
+| 위험 요인 이름 `factors[].label` | `type`과 요청 언어로 정해진다. 이전에 저장된 진단도 요청 언어로 내려간다. |
+| 딥페이크 탐지 (`POST /api/v1/deepfake-detections`) | 근거 설명(`evidences[].description`)이 요청 언어로 생성된다. 요청 시점의 언어가 비동기 작업에도 전달된다. |
+| 익명 상담 챗봇 | 일반 대화의 AI 답변이 요청 언어로 생성된다. |
+
+한국어가 유지되는 항목: 위기 상황 고정 문구, AI 호출 실패 시의 룰 기반 챗봇 답변, 신고 문서 초안, 기관 정보, 서버 에러의 `message`. 이미 저장된 분석·상담 기록의 문장은 저장 당시 언어로 내려간다.
+
+### 위험 요인 `type` 고정 값
+
+`IMAGE_QUALITY`, `FACE_EXPOSURE`, `METADATA_LEAK`, `REVERSE_SEARCH_RISK` — 언어와 무관하게 고정이며, 프론트는 이 값으로 번역 키를 매칭할 수 있다.
+
+### 에러 코드
+
+에러 응답은 `{ "status", "code", "message" }` 형식이며 `code`는 아래 값 중 하나다. 프론트는 `code`를 기준으로 언어별 문구를 표시한다 (`message`는 한국어).
+
+| code | HTTP |
+|---|---|
+| `INVALID_INPUT` | BAD_REQUEST |
+| `UNAUTHORIZED` | UNAUTHORIZED |
+| `FORBIDDEN` | FORBIDDEN |
+| `NOT_FOUND` | NOT_FOUND |
+| `CONFLICT` | CONFLICT |
+| `FILE_TOO_LARGE` | PAYLOAD_TOO_LARGE |
+| `UNSUPPORTED_MEDIA_TYPE` | UNSUPPORTED_MEDIA_TYPE |
+| `INTERNAL_SERVER_ERROR` | INTERNAL_SERVER_ERROR |
+| `LOGIN_FAILED` | UNAUTHORIZED |
+| `EMAIL_ALREADY_EXISTS` | CONFLICT |
+| `AGREEMENT_REQUIRED` | BAD_REQUEST |
+| `CODE_MISMATCH` | BAD_REQUEST |
+| `CODE_EXPIRED` | BAD_REQUEST |
+| `INVALID_REFRESH_TOKEN` | UNAUTHORIZED |
+| `INVALID_VERIFICATION` | UNAUTHORIZED |
+| `PASSWORD_MISMATCH` | BAD_REQUEST |
+| `VERIFICATION_TOO_FREQUENT` | TOO_MANY_REQUESTS |
+| `FACE_NOT_DETECTED` | UNPROCESSABLE_ENTITY |
+| `ANALYSIS_UNAVAILABLE` | SERVICE_UNAVAILABLE |
+| `ANONYMOUS_ID_REQUIRED` | BAD_REQUEST |
+| `ANONYMOUS_DETECTION_LIMIT_EXCEEDED` | TOO_MANY_REQUESTS |
+| `ANONYMOUS_RISK_ASSESSMENT_LIMIT_EXCEEDED` | TOO_MANY_REQUESTS |
+| `ANONYMOUS_CHAT_LIMIT_EXCEEDED` | TOO_MANY_REQUESTS |
+| `PROTECTION_NOT_READY` | CONFLICT |
+| `REQUIRED_FIELD_MISSING` | BAD_REQUEST |
+| `REPORT_ALREADY_FINALIZED` | CONFLICT |

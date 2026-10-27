@@ -9,6 +9,7 @@ import com.signal.domain.deepfakedetection.repository.DeepfakeDetectionRepositor
 import com.signal.global.ai.LlmJsonExtractor;
 import com.signal.global.ai.VisionCompletionClient;
 import com.signal.global.file.FileStorage;
+import com.signal.global.i18n.LanguageContext;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.net.SocketTimeoutException;
@@ -122,7 +123,8 @@ public class LlmDeepfakeDetector implements DeepfakeDetector {
             int[] pixelSize = readPixelSize(content);
             String mimeType = sniffMimeType(content);
 
-            String rawResponse = visionCompletionClient.complete(content, mimeType, SYSTEM_PROMPT, USER_PROMPT);
+            String rawResponse = visionCompletionClient.complete(
+                    content, mimeType, SYSTEM_PROMPT + LanguageContext.current().promptInstruction(), USER_PROMPT);
             VisionDeepfakeAssessment parsed = parseResponse(rawResponse);
             if (Boolean.FALSE.equals(parsed.faceDetected())) {
                 log.info("비전 LLM이 얼굴을 검출하지 못했습니다: detectionId={}", detectionId);
