@@ -54,4 +54,22 @@ class GroqVisionClientTest {
         assertThatThrownBy(() -> client.complete(new byte[]{1, 2, 3}, "image/png", "sys", "user"))
                 .isInstanceOf(IllegalStateException.class);
     }
+
+    @Test
+    void finish_reason이_length면_잘린_응답을_반환하지_않고_예외를_던진다() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GroqVisionClient client = new GroqVisionClient(
+                builder.baseUrl(BASE_URL).build(), "test-key", "qwen/qwen3.8-27b", 1024);
+
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andRespond(withSuccess(
+                        """
+                        {"choices":[{"message":{"role":"assistant","content":"{\\"factors\\":[{\\"description\\":\\"The face"},"finish_reason":"length"}]}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> client.complete(new byte[]{1, 2, 3, 4}, "image/png", "sys", "user"))
+                .isInstanceOf(IllegalStateException.class);
+    }
 }

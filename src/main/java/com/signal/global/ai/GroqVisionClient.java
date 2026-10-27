@@ -1,5 +1,6 @@
 package com.signal.global.ai;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
@@ -91,7 +92,12 @@ public class GroqVisionClient implements VisionCompletionClient {
         if (response == null || response.choices() == null || response.choices().isEmpty()) {
             throw new IllegalStateException("Groq 응답에 choices가 없습니다.");
         }
-        Message message = response.choices().get(0).message();
+        Choice choice = response.choices().get(0);
+        // 토큰 상한에 걸려 잘린 JSON은 실패로 처리해, 호출부가 룰 기반 결과로 대체하게 한다.
+        if ("length".equals(choice.finishReason())) {
+            throw new IllegalStateException("Groq 응답이 토큰 상한(max_completion_tokens)에 걸려 잘렸습니다.");
+        }
+        Message message = choice.message();
         String content = message == null ? null : message.content();
         if (!StringUtils.hasText(content)) {
             throw new IllegalStateException("Groq 응답 content가 비어 있습니다.");
@@ -102,7 +108,7 @@ public class GroqVisionClient implements VisionCompletionClient {
     private record GroqVisionResponse(List<Choice> choices) {
     }
 
-    private record Choice(Message message) {
+    private record Choice(Message message, @JsonProperty("finish_reason") String finishReason) {
     }
 
     private record Message(String role, String content) {
