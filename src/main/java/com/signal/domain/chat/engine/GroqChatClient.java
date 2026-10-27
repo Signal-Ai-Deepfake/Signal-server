@@ -53,7 +53,7 @@ public class GroqChatClient implements ChatCompletionClient {
             @Value("${chat.llm.base-url:https://api.groq.com/openai/v1}") String baseUrl,
             @Value("${chat.llm.api-key:}") String apiKey,
             @Value("${chat.llm.model:openai/gpt-oss-120b}") String model,
-            @Value("${chat.llm.max-completion-tokens:400}") int maxCompletionTokens) {
+            @Value("${chat.llm.max-completion-tokens:1024}") int maxCompletionTokens) {
         this.apiKey = apiKey;
         this.model = model;
         this.maxCompletionTokens = maxCompletionTokens;
