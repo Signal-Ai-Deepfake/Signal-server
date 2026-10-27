@@ -1,5 +1,6 @@
 package com.signal.domain.chat.engine;
 
+import com.signal.global.i18n.LanguageContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -96,7 +97,8 @@ public class GroqChatClient implements ChatCompletionClient {
     private List<Map<String, Object>> buildMessages(
             String userMessage, SituationType situationType, List<ChatTurn> history) {
         List<Map<String, Object>> messages = new ArrayList<>();
-        messages.add(Map.of("role", "system", "content", SYSTEM_PROMPT + situationHint(situationType)));
+        messages.add(Map.of("role", "system", "content",
+                SYSTEM_PROMPT + situationHint(situationType) + LanguageContext.current().promptInstruction()));
         if (history != null) {
             for (ChatTurn turn : history) {
                 String role = turn.speaker() == ChatSpeaker.USER ? "user" : "assistant";
