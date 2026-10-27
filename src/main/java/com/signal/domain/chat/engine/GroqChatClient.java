@@ -2,6 +2,7 @@ package com.signal.domain.chat.engine;
 
 import com.signal.global.i18n.LanguageContext;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
@@ -47,16 +48,19 @@ public class GroqChatClient implements ChatCompletionClient {
     private final String apiKey;
     private final String model;
     private final int maxCompletionTokens;
+    private final String reasoningEffort;
 
     public GroqChatClient(
             RestClient.Builder restClientBuilder,
             @Value("${chat.llm.base-url:https://api.groq.com/openai/v1}") String baseUrl,
             @Value("${chat.llm.api-key:}") String apiKey,
             @Value("${chat.llm.model:openai/gpt-oss-120b}") String model,
-            @Value("${chat.llm.max-completion-tokens:1024}") int maxCompletionTokens) {
+            @Value("${chat.llm.max-completion-tokens:1024}") int maxCompletionTokens,
+            @Value("${chat.llm.reasoning-effort:low}") String reasoningEffort) {
         this.apiKey = apiKey;
         this.model = model;
         this.maxCompletionTokens = maxCompletionTokens;
+        this.reasoningEffort = reasoningEffort;
         this.restClient = restClientBuilder.baseUrl(baseUrl).build();
     }
 
@@ -77,11 +81,15 @@ public class GroqChatClient implements ChatCompletionClient {
             throw new IllegalStateException("GROQ_API_KEY가 설정되지 않았습니다.");
         }
 
-        Map<String, Object> requestBody = Map.of(
+        Map<String, Object> requestBody = new HashMap<>(Map.of(
                 "model", model,
                 "max_completion_tokens", maxCompletionTokens,
                 "temperature", temperature,
-                "messages", messages);
+                "messages", messages));
+        // 추론 모델(gpt-oss 등)만 지원하는 옵션이라, 비워 두면 요청에 넣지 않는다.
+        if (StringUtils.hasText(reasoningEffort)) {
+            requestBody.put("reasoning_effort", reasoningEffort);
+        }
 
         GroqChatResponse response = restClient.post()
                 .uri("/chat/completions")

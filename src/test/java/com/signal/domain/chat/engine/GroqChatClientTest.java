@@ -33,7 +33,7 @@ class GroqChatClientTest {
     void 요청_언어가_일본어면_system_메시지에_일본어_응답_지시를_더한다() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400);
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400, "low");
         LanguageContext.set(ResponseLanguage.JA);
 
         server.expect(requestTo(BASE_URL + "/chat/completions"))
@@ -53,7 +53,7 @@ class GroqChatClientTest {
     void 언어가_지정되지_않으면_system_메시지에_언어_지시를_더하지_않는다() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400);
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400, "low");
 
         server.expect(requestTo(BASE_URL + "/chat/completions"))
                 .andExpect(jsonPath("$.messages[0].content", not(containsString("[Response language]"))))
@@ -71,13 +71,14 @@ class GroqChatClientTest {
     void 정상_응답이면_choices의_첫_메시지_content를_반환한다() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400);
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400, "low");
 
         server.expect(requestTo(BASE_URL + "/chat/completions"))
                 .andExpect(method(HttpMethod.POST))
                 .andExpect(header("Authorization", "Bearer test-key"))
                 .andExpect(jsonPath("$.model").value("openai/gpt-oss-120b"))
                 .andExpect(jsonPath("$.max_completion_tokens").value(400))
+                .andExpect(jsonPath("$.reasoning_effort").value("low"))
                 .andExpect(jsonPath("$.messages[1].role").value("user"))
                 .andExpect(jsonPath("$.messages[1].content").value("안녕하세요"))
                 .andRespond(withSuccess(
@@ -96,7 +97,7 @@ class GroqChatClientTest {
     void 이전_대화_기록이_있으면_system_메시지_뒤에_순서대로_끼워넣는다() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400);
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400, "low");
         List<ChatTurn> history = List.of(
                 new ChatTurn(ChatSpeaker.USER, "제 사진이 유포된 것 같아요"),
                 new ChatTurn(ChatSpeaker.BOT, "많이 놀라셨겠어요. 어디에 유포됐는지 아시나요?"));
@@ -121,9 +122,27 @@ class GroqChatClientTest {
     }
 
     @Test
+    void reasoning_effort가_비어있으면_요청에_넣지_않는다() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "some/non-reasoning-model", 400, "");
+
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.reasoning_effort").doesNotExist())
+                .andRespond(withSuccess(
+                        """
+                        {"choices":[{"message":{"role":"assistant","content":"안녕하세요"}}]}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.complete("안녕하세요", SituationType.GENERAL, List.of())).isEqualTo("안녕하세요");
+        server.verify();
+    }
+
+    @Test
     void API_키가_비어있으면_호출하지_않고_예외를_던진다() {
         RestClient.Builder builder = RestClient.builder();
-        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "", "openai/gpt-oss-120b", 400);
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "", "openai/gpt-oss-120b", 400, "low");
 
         assertThatThrownBy(() -> client.complete("안녕", SituationType.GENERAL, List.of()))
                 .isInstanceOf(IllegalStateException.class);
@@ -133,7 +152,7 @@ class GroqChatClientTest {
     void choices가_비어있으면_예외를_던진다() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
-        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400);
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400, "low");
 
         server.expect(requestTo(BASE_URL + "/chat/completions"))
                 .andRespond(withSuccess("""
