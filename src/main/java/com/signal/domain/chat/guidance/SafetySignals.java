@@ -26,17 +26,38 @@ public final class SafetySignals {
             // zh-CN
             "自杀", "想死", "不想活", "自残", "轻生", "结束生命", "活不下去", "了结自己");
 
-    private static final List<String> ABUSE = List.of(
+    /** 그 자체로 이미지 피해를 가리키는 표현. 단독으로도 이미지 피해로 분류한다. */
+    private static final List<String> ABUSE_STRONG = List.of(
             // ko
-            "도용", "유포", "딥페이크", "합성", "몸캠", "협박", "동의 없이", "불법 촬영", "불법촬영",
-            "합성사진", "리벤지", "성착취",
+            "딥페이크", "몸캠", "불법 촬영", "불법촬영", "합성사진", "리벤지", "성착취",
             // en
-            "deepfake", "deep fake", "fake nude", "fake porn", "nude photo", "nudes", "leaked my",
-            "revenge porn", "sextortion", "blackmail", "without my consent", "morphed", "face swap",
+            "deepfake", "deep fake", "fake nude", "fake porn", "nude photo", "nudes", "revenge porn",
+            "sextortion", "face swap",
             // ja
-            "ディープフェイク", "合成", "流出", "拡散", "リベンジポルノ", "脅迫", "無断", "盗撮", "性的な画像",
+            "ディープフェイク", "リベンジポルノ", "盗撮", "性的な画像",
             // zh-CN
-            "深度伪造", "换脸", "合成", "泄露", "传播", "裸照", "威胁", "勒索", "未经同意", "偷拍", "私密照");
+            "深度伪造", "换脸", "裸照", "偷拍", "私密照");
+
+    /** 일상 대화에도 나오는 표현. 사진·영상 같은 이미지 단어와 함께 나올 때만 이미지 피해로 분류한다. */
+    private static final List<String> ABUSE_AMBIGUOUS = List.of(
+            // ko
+            "도용", "유포", "합성", "협박", "동의 없이",
+            // en
+            "leaked my", "blackmail", "without my consent", "morphed",
+            // ja
+            "合成", "流出", "拡散", "脅迫", "無断",
+            // zh-CN
+            "合成", "泄露", "传播", "威胁", "勒索", "未经同意");
+
+    private static final List<String> IMAGE_WORDS = List.of(
+            // ko
+            "사진", "영상", "이미지", "얼굴", "촬영", "동영상", "짤",
+            // en
+            "photo", "picture", "image", "video", "pic ", "selfie", "face", "nude",
+            // ja
+            "写真", "画像", "動画", "顔", "映像",
+            // zh-CN
+            "照片", "图片", "图像", "视频", "脸", "影像", "相片");
 
     private SafetySignals() {
     }
@@ -46,7 +67,8 @@ public final class SafetySignals {
     }
 
     public static boolean isImageAbuse(String content) {
-        return containsAny(content, ABUSE);
+        return containsAny(content, ABUSE_STRONG)
+                || (containsAny(content, ABUSE_AMBIGUOUS) && containsAny(content, IMAGE_WORDS));
     }
 
     private static boolean containsAny(String content, List<String> keywords) {

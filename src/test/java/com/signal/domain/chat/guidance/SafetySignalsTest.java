@@ -48,4 +48,28 @@ class SafetySignalsTest {
         assertThat(SafetySignals.isCrisis(null)).isFalse();
         assertThat(SafetySignals.isImageAbuse("   ")).isFalse();
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "회사에서 합성 소재 이야기가 나왔어요",
+            "친구가 협박하듯이 말해서 속상해요",
+            "He tried to blackmail me into working overtime",
+            "データが流出したニュースを見ました",
+            "今天的传播学课很有趣",
+            "老板威胁要扣我工资",
+            "소문이 유포돼서 힘들어요"})
+    void 이미지_단어가_없는_일상_표현은_이미지_피해로_분류하지_않는다(String message) {
+        assertThat(SafetySignals.isImageAbuse(message)).isFalse();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "사진으로 협박당하고 있어요",
+            "내 얼굴 영상이 동의 없이 올라갔어요",
+            "He is trying to blackmail me with a photo",
+            "顔の写真が無断で拡散されました",
+            "有人用我的照片威胁我"})
+    void 이미지_단어와_함께_나온_모호한_표현은_이미지_피해로_분류한다(String message) {
+        assertThat(SafetySignals.isImageAbuse(message)).isTrue();
+    }
 }
