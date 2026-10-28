@@ -57,6 +57,22 @@ public final class StageRules {
         return merged;
     }
 
+    /**
+     * 상담 유형이 바뀔 때 이전 단계 상태를 새 유형에 맞게 조정한다.
+     * 일반 상담에서 기관 안내(마음이 힘들 때의 상담전화)를 마친 뒤 이미지 피해로 바뀌면, 디성센터·방심위·경찰 같은
+     * 이미지 피해 기관은 아직 안내하지 않았으므로 기관 안내 단계를 다시 시작한다. 진행률이 줄어들 수 있다.
+     */
+    public static Map<ConsultationStage, StageStatus> forTypeChange(
+            SituationType previousType, SituationType newType, Map<ConsultationStage, StageStatus> before) {
+        if (previousType == SituationType.GENERAL && newType == SituationType.IMAGE_ABUSE) {
+            Map<ConsultationStage, StageStatus> adjusted = new EnumMap<>(ConsultationStage.class);
+            adjusted.putAll(before);
+            adjusted.remove(ConsultationStage.AGENCY_GUIDANCE);
+            return adjusted;
+        }
+        return before;
+    }
+
     /** 서버가 안내 블록을 이번 턴에 내보냈을 때의 단계 상태 변화. 안내 단계는 "안내했다"가 완료다. */
     public static StageSnapshot markDelivered(StageSnapshot snapshot, ConsultationStage stage) {
         Map<ConsultationStage, StageStatus> stages = new EnumMap<>(ConsultationStage.class);

@@ -265,6 +265,35 @@ class ChatServiceTest {
     }
 
     @Test
+    void 일반_상담에서_기관_안내를_마친_뒤_이미지_피해로_바뀌면_이미지_피해_기관을_다시_안내한다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        session.recordEngineResult(SituationType.GENERAL, false, true);
+        session.updateStageSnapshot(new StageSnapshot(SituationType.GENERAL, Map.of(
+                ConsultationStage.SITUATION_CHECK, StageStatus.COMPLETED,
+                ConsultationStage.EMOTIONAL_SUPPORT, StageStatus.COMPLETED,
+                ConsultationStage.AGENCY_GUIDANCE, StageStatus.COMPLETED)));
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        stubPreviousExchange(session);
+        when(chatEngine.respond(eq("사실 제 사진이 합성돼서 유포됐어요"), any())).thenReturn(new ChatEngineResponse(
+                "많이 놀라셨겠어요", SituationType.IMAGE_ABUSE, List.of(), false, List.of()));
+
+        SendMessageResult first = chatService.sendMessage("session-1", 1L, null, "사실 제 사진이 합성돼서 유포됐어요");
+
+        assertThat(first.progress().stages().get(ConsultationStage.AGENCY_GUIDANCE))
+                .isEqualTo(StageStatus.NOT_STARTED);
+        assertThat(first.engineResponse().reply()).contains("증거 보존");   // 이미지 피해라서 증거 보존부터 안내
+
+        when(chatEngine.respond(eq("인스타그램이에요"), any())).thenReturn(new ChatEngineResponse(
+                "인스타그램이군요", SituationType.IMAGE_ABUSE, List.of(), false, List.of()));
+        SendMessageResult second = chatService.sendMessage("session-1", 1L, null, "인스타그램이에요");
+
+        assertThat(second.engineResponse().reply()).contains("d4u.stop.or.kr");
+        assertThat(second.engineResponse().recommendedAgencies()).anyMatch(agency -> agency.contains("1377"));
+    }
+
+    @Test
     void LLM이_모든_단계를_완료로_판단해도_서버는_완료로_인정하지_않는다() {
         ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
         when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));

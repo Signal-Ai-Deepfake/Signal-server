@@ -91,4 +91,29 @@ class StageRulesTest {
                 new StageSnapshot(SituationType.IMAGE_ABUSE, NONE), ConsultationStage.PLATFORM_REPORT);
         assertThat(snapshot.stages().get(ConsultationStage.PLATFORM_REPORT)).isEqualTo(StageStatus.COMPLETED);
     }
+
+    @Test
+    void 일반_상담에서_이미지_피해로_바뀌면_기관_안내를_다시_시작한다() {
+        Map<ConsultationStage, StageStatus> before = Map.of(
+                ConsultationStage.SITUATION_CHECK, StageStatus.COMPLETED,
+                ConsultationStage.AGENCY_GUIDANCE, StageStatus.COMPLETED);
+
+        Map<ConsultationStage, StageStatus> adjusted = StageRules.forTypeChange(
+                SituationType.GENERAL, SituationType.IMAGE_ABUSE, before);
+        Map<ConsultationStage, StageStatus> merged = StageRules.merge(
+                SituationType.IMAGE_ABUSE, adjusted, facts(false, false, false, 4), NONE);
+
+        assertThat(merged.get(ConsultationStage.AGENCY_GUIDANCE)).isEqualTo(StageStatus.NOT_STARTED);
+        assertThat(merged.get(ConsultationStage.SITUATION_CHECK)).isEqualTo(StageStatus.COMPLETED);
+    }
+
+    @Test
+    void 유형이_그대로거나_이미지_피해에서_시작하면_상태를_바꾸지_않는다() {
+        Map<ConsultationStage, StageStatus> before = Map.of(ConsultationStage.AGENCY_GUIDANCE, StageStatus.COMPLETED);
+
+        assertThat(StageRules.forTypeChange(SituationType.GENERAL, SituationType.GENERAL, before)).isEqualTo(before);
+        assertThat(StageRules.forTypeChange(SituationType.IMAGE_ABUSE, SituationType.IMAGE_ABUSE, before))
+                .isEqualTo(before);
+        assertThat(StageRules.forTypeChange(null, SituationType.IMAGE_ABUSE, before)).isEqualTo(before);
+    }
 }

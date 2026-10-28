@@ -23,7 +23,9 @@ public class ConsultationProgressTracker {
     public StageSnapshot update(StageSnapshot previous, SituationType currentType,
                                 List<ChatTurn> turns, StageFacts facts) {
         SituationType type = resolveType(previous, currentType);
-        Map<ConsultationStage, StageStatus> before = previous == null ? Map.of() : previous.stages();
+        Map<ConsultationStage, StageStatus> before = previous == null
+                ? Map.of()
+                : StageRules.forTypeChange(previous.type(), type, previous.stages());
 
         Map<ConsultationStage, StageStatus> fromLlm = analyzeSafely(type, turns, before, facts);
         Map<ConsultationStage, StageStatus> merged = StageRules.merge(type, before, facts, fromLlm);
