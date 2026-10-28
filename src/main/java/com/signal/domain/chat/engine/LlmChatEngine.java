@@ -1,5 +1,6 @@
 package com.signal.domain.chat.engine;
 
+import com.signal.domain.chat.guidance.ReplyGuard;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Component;
  * - 위기 상황일 때는 LLM을 아예 호출하지 않고 검증된 고정 문구로만 응답한다.
  * - 그 외 일반 대화의 답변 텍스트(reply)만 LLM이 생성한다. 이때 같은 세션의 이전 대화(history)도 함께
  *   넘겨 LLM이 맥락을 이어서 답할 수 있게 한다.
+ * - LLM 답변에 기관 목록({@code AgencyCatalog})에 없는 번호가 섞이면({@link ReplyGuard}) 그 답변을 버리고
+ *   룰 기반 응답으로 대체한다.
  * - GROQ_API_KEY 미설정(chat.llm.api-key 비어있음), chat.llm.enabled=false, 또는 API 호출 실패(타임아웃,
  *   네트워크 오류, 빈 응답 등) 시에는 예외를 삼키고 룰 기반 응답으로 안전하게 대체하여 챗봇 자체가 죽지 않게 한다.
  */
@@ -42,6 +45,11 @@ public class LlmChatEngine implements ChatEngine {
 
         try {
             String llmReply = chatCompletionClient.complete(content, ruleBasedResponse.situationType(), history);
+            if (ReplyGuard.containsUnknownNumber(llmReply, content)) {
+                // 프롬프트로 금지했는데도 기관 목록에 없는 번호가 나왔다. 잘못된 번호 안내가 더 위험하므로 고정 답변으로 대체한다.
+                log.warn("LLM 답변에 기관 목록에 없는 번호가 있어 룰 기반 응답으로 대체합니다.");
+                return ruleBasedResponse;
+            }
             return new ChatEngineResponse(
                     llmReply,
                     ruleBasedResponse.situationType(),
