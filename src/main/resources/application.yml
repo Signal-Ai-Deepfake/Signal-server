@@ -71,7 +71,11 @@ monitoring:
   processing-delay-ms: 3000   # 얼굴 모니터링 초기 탐지 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
 
 deepfake-detection:
+  mode: ${DEEPFAKE_DETECTION_MODE:llm}   # llm: 비전 LLM(LlmDeepfakeDetector, 기본) / http: detect-lab 서비스의 전용 탐지 모델 호출(HttpDeepfakeDetector)
   processing-delay-ms: 3000   # 딥페이크 탐지 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
+  http:
+    base-url: ${DEEPFAKE_DETECTION_API_URL:http://localhost:8000}
+    timeout-seconds: ${DEEPFAKE_DETECTION_API_TIMEOUT_SECONDS:60}
 
 chat:
   llm:

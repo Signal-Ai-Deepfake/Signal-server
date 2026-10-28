@@ -19,13 +19,14 @@ import java.util.List;
 import javax.imageio.ImageIO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 /**
  * 비전 LLM({@link VisionCompletionClient}, 기본 구현은 Groq)으로 실제 이미지를 분석해 딥페이크
- * 여부를 판정하는 탐지기. DeepfakeDetector의 유일한 Spring 빈으로, 기존 StubDeepfakeDetector를
- * 대체한다.
+ * 여부를 판정하는 탐지기. 기본(deepfake-detection.mode=llm)에서 쓰이는 Spring 빈이며, mode=http이면
+ * {@link HttpDeepfakeDetector}가 대신한다.
  *
  * 중요한 한계(정직하게 명시):
  * - 범용 비전 LLM은 전문 딥페이크 탐지 모델이 아니다. 학습 데이터에 실제/합성 이진 분류 태스크가
@@ -43,6 +44,7 @@ import org.springframework.stereotype.Component;
  */
 @Slf4j
 @Component
+@ConditionalOnProperty(name = "deepfake-detection.mode", havingValue = "llm", matchIfMissing = true)
 public class LlmDeepfakeDetector implements DeepfakeDetector {
 
     private static final String SYSTEM_PROMPT = """
