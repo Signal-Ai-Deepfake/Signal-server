@@ -43,13 +43,13 @@ class GuidanceTextTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"네 좋아요", "응", "네, 괜찮아요", "그래요", "마무리해주세요", "Yes, please finish", "はい", "好的"})
+    @ValueSource(strings = {"네 좋아요", "응", "네, 괜찮아요", "그래요", "마무리해주세요", "Yes, please finish", "はい", "好的", "好的,我没事", "はい、大丈夫です"})
     void 종료_제안에_긍정하면_종료로_판단한다(String reply) {
         assertThat(GuidanceText.isEndConfirmation(reply)).isTrue();
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"더 얘기하고 싶어요", "그래도 계속 얘기할래", "그래도 얘기하니 낫네요", "응원해주셔서 감사해요", "no, I want to keep talking", "我还想继续"})
+    @ValueSource(strings = {"더 얘기하고 싶어요", "그래도 계속 얘기할래", "그래도 얘기하니 낫네요", "응원해주셔서 감사해요", "no, I want to keep talking", "我还想继续", "我不想结束", "終わりたくない", "大丈夫じゃない", "大丈夫ではありません", "끝내고 싶지 않아요", "아직 마무리 안 할래요", "I don't want to finish", "not okay, I want to talk more", "先不结束,好的"})
     void 더_이야기하고_싶다는_답은_종료로_판단하지_않는다(String reply) {
         assertThat(GuidanceText.isEndConfirmation(reply)).isFalse();
     }

@@ -18,8 +18,9 @@ public final class GuidanceText {
     // "네가", "응원", "그래도", "그래서"처럼 다른 단어의 일부인 경우는 긍정으로 보지 않는다.
     private static final Pattern KO_CONFIRM = Pattern.compile(
             "(?<![가-힣])(네|넵|응|좋아(요)?|그래(요)?)(?![가-힣])");
+    // 모호하면 종료하지 않는 쪽으로 판단한다(부정문이 긍정 키워드와 함께 오는 경우를 막기 위해 넓게 잡았다).
     private static final Pattern EN_DECLINE = Pattern.compile(
-            "\\b(no|not yet|more|continue|keep going|wait)\\b", Pattern.CASE_INSENSITIVE);
+            "n't|\\b(no|nope|nah|not|never|more|continue|keep going|wait)\\b", Pattern.CASE_INSENSITIVE);
 
     private GuidanceText() {
     }
@@ -177,8 +178,9 @@ public final class GuidanceText {
         }
         String text = content.toLowerCase(java.util.Locale.ROOT);
         boolean decline = EN_DECLINE.matcher(text).find()
-                || containsAny(text, "아니", "더 얘기", "더 이야기", "계속", "아직", "まだ", "いいえ", "続け",
-                "还想", "还要", "继续", "不要", "不用", "先不");
+                || containsAny(text, "아니", "더 얘기", "더 이야기", "계속", "아직", "싫", "않", "말고", "못", "안 ",
+                "まだ", "いいえ", "続け", "たくない", "じゃない", "ではない", "ません", "いや", "だめ",
+                "还想", "还要", "继续", "不想", "不要", "不用", "不行", "不能", "不是", "没有", "别", "先不", "暂时不");
         if (decline) {
             return false;
         }
