@@ -147,7 +147,9 @@ public class ChatService {
                 snapshot.type(), snapshot.stages(), userTurns, engineResponse.crisisDetected());
         String reply = engineResponse.reply();
         List<String> agencies = engineResponse.recommendedAgencies();
+        boolean changed = false;
         if (delivered.isPresent()) {
+            changed = true;
             ConsultationStage stage = delivered.get();
             snapshot = StageRules.markDelivered(snapshot, stage);
             reply = reply + "\n\n" + GuidanceText.guidanceBlock(stage, snapshot.type(), language);
@@ -168,9 +170,10 @@ public class ChatService {
                 && !session.isSessionEnded() && !session.isAwaitingEndConfirmation()) {
             session.markAwaitingEndConfirmation();
             reply = reply + "\n\n" + GuidanceText.endPrompt(language);
+            changed = true;
         }
 
-        if (reply.equals(engineResponse.reply()) && agencies == engineResponse.recommendedAgencies()) {
+        if (!changed) {
             return engineResponse;
         }
         return new ChatEngineResponse(
