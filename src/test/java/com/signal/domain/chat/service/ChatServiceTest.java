@@ -294,6 +294,23 @@ class ChatServiceTest {
     }
 
     @Test
+    void 단계_판정은_LLM에_넘기는_최근_대화가_아니라_세션_전체의_사용자_메시지_수를_쓴다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        // 오래된 대화라 최근 10개만 넘어가도(history가 비어 있어도) 저장된 사용자 메시지는 이미 많다.
+        when(chatMessageRepository.countByChatSessionIdAndRole(session.getId(), ChatRole.USER)).thenReturn(30L);
+        when(chatEngine.respond(eq("계속 얘기할게요"), any())).thenReturn(new ChatEngineResponse(
+                "네, 말씀하세요", SituationType.GENERAL, List.of(), false, List.of()));
+
+        SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "계속 얘기할게요");
+
+        assertThat(result.progress().stages().get(ConsultationStage.SITUATION_CHECK))
+                .isEqualTo(StageStatus.COMPLETED);
+    }
+
+    @Test
     void LLM이_모든_단계를_완료로_판단해도_서버는_완료로_인정하지_않는다() {
         ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
         when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
@@ -359,6 +376,7 @@ class ChatServiceTest {
                 .chatSessionId(session.getId()).role(ChatRole.BOT).content("전에 답한 말").build();
         when(chatMessageRepository.findByChatSessionIdOrderByCreatedAtAsc(session.getId()))
                 .thenReturn(List.of(prevUser, prevBot));
+        when(chatMessageRepository.countByChatSessionIdAndRole(session.getId(), ChatRole.USER)).thenReturn(1L);
     }
 
     @Test

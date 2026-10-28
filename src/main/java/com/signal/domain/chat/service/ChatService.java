@@ -73,6 +73,8 @@ public class ChatService {
     public SendMessageResult sendMessage(String sessionId, Long userId, String anonymousId, String content) {
         ChatSession session = getOwnedSession(sessionId, userId, anonymousId);
         List<ChatTurn> history = buildHistory(session.getId());
+        // 단계 판정에는 LLM에 넘기는 최근 10개가 아니라 세션 전체의 사용자 메시지 수를 쓴다(이번 메시지 포함).
+        int userTurns = (int) chatMessageRepository.countByChatSessionIdAndRole(session.getId(), ChatRole.USER) + 1;
 
         session.recordUserMessage(content);
         if (URL_PATTERN.matcher(content).find()) {
@@ -85,7 +87,7 @@ public class ChatService {
                 .content(content)
                 .build());
 
-        ChatEngineResponse engineResponse = resolveEngineResponse(session, userId, content, history);
+        ChatEngineResponse engineResponse = resolveEngineResponse(session, userId, content, history, userTurns);
 
         ChatMessage botMessage = chatMessageRepository.save(ChatMessage.builder()
                 .chatSessionId(session.getId())
@@ -109,7 +111,7 @@ public class ChatService {
     }
 
     private ChatEngineResponse resolveEngineResponse(
-            ChatSession session, Long userId, String content, List<ChatTurn> history) {
+            ChatSession session, Long userId, String content, List<ChatTurn> history, int userTurns) {
         ResponseLanguage language = LanguageContext.current();
         if (session.isAwaitingEndConfirmation()) {
             boolean confirmed = GuidanceText.isEndConfirmation(content);
@@ -130,7 +132,6 @@ public class ChatService {
         List<ChatTurn> turns = new ArrayList<>(history);
         turns.add(new ChatTurn(ChatSpeaker.USER, content));
         turns.add(new ChatTurn(ChatSpeaker.BOT, engineResponse.reply()));
-        int userTurns = (int) turns.stream().filter(turn -> turn.speaker() == ChatSpeaker.USER).count();
         StageSnapshot snapshot = progressTracker.update(
                 session.getStageSnapshot(), engineResponse.situationType(), turns,
                 new StageFacts(
