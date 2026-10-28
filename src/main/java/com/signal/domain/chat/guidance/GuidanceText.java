@@ -2,6 +2,7 @@ package com.signal.domain.chat.guidance;
 
 import com.signal.domain.chat.engine.SituationType;
 import com.signal.domain.chat.progress.ConsultationStage;
+import com.signal.domain.riskassessment.entity.RiskLevel;
 import com.signal.global.i18n.ResponseLanguage;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -149,6 +150,50 @@ public final class GuidanceText {
                     "それと、今の気持ちはいかがですか?こうしたことがあれば、不安になったりつらくなったりするのは自然なことです。"
                             + "話したいことがあれば、気軽に話してください。",
                     "还有,你现在心情怎么样?遇到这种事感到不安和难受是很自然的。想说什么都可以随时告诉我。");
+            default -> null;
+        };
+    }
+
+    // ---------------------------------------------------------------- 상담 요약
+
+    public static String summarySituation(SituationType type, boolean crisis, ResponseLanguage lang) {
+        if (type == null) {
+            return pick(lang, "상담 시작 전", "Before the session", "相談開始前", "咨询开始前");
+        }
+        if (type == SituationType.IMAGE_ABUSE) {
+            return crisis
+                    ? pick(lang, "이미지 도용·유포로 인한 위기 상황",
+                    "Crisis related to image misuse or spread",
+                    "画像の悪用・拡散による危機的状況", "因图片被盗用或传播而陷入的危机")
+                    : pick(lang, "이미지 도용·유포 피해 상담",
+                    "Counseling about image misuse or spread",
+                    "画像の悪用・拡散被害の相談", "图片被盗用或传播的受害咨询");
+        }
+        return crisis
+                ? pick(lang, "정서적 위기 상황", "Emotional crisis", "精神的な危機的状況", "情绪危机")
+                : pick(lang, "일반 상담", "General counseling", "一般相談", "一般咨询");
+    }
+
+    public static String summaryRiskDescription(RiskLevel level, ResponseLanguage lang) {
+        return switch (level) {
+            case HIGH -> pick(lang, "위험 신호가 감지되어 긴급한 조치가 필요해요.",
+                    "Warning signs were detected and urgent action is needed.",
+                    "危険な兆候が検知され、緊急の対応が必要です。", "检测到危险信号,需要紧急处理。");
+            case MEDIUM -> pick(lang, "확산 여부를 확인하고 있어요.",
+                    "We are checking whether the content has spread.",
+                    "拡散しているかどうかを確認しています。", "正在确认内容是否已经扩散。");
+            case LOW -> pick(lang, "특별한 위험 신호는 없어요.",
+                    "No particular warning signs.",
+                    "特に危険な兆候はありません。", "没有特别的危险信号。");
+        };
+    }
+
+    /** 아직 남은 안내 단계를 사용자에게 보여 주는 짧은 이름. 안내 단계가 아니면 null. */
+    public static String stepLabel(ConsultationStage stage, ResponseLanguage lang) {
+        return switch (stage) {
+            case EVIDENCE_PRESERVATION -> pick(lang, "증거 보존", "Preserve evidence", "証拠の保存", "保存证据");
+            case PLATFORM_REPORT -> pick(lang, "플랫폼 신고", "Report to the platform", "プラットフォームへの通報", "向平台举报");
+            case AGENCY_GUIDANCE -> pick(lang, "전문 기관 상담", "Contact a support organization", "専門機関への相談", "联系专业机构");
             default -> null;
         };
     }
