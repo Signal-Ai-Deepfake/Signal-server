@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.signal.domain.chat.dto.response.ChatSummaryResponse;
+import com.signal.domain.chat.dto.response.ConsultationProgressResponse;
 import com.signal.domain.chat.engine.ChatEngine;
 import com.signal.domain.chat.engine.ChatEngineResponse;
 import com.signal.domain.chat.engine.ChatSpeaker;
@@ -22,10 +23,10 @@ import com.signal.domain.chat.progress.ConsultationProgressStatus;
 import com.signal.domain.chat.progress.ConsultationProgressTracker;
 import com.signal.domain.chat.progress.ConsultationStage;
 import com.signal.domain.chat.progress.StageAnalyzer;
+import com.signal.domain.chat.progress.StageSnapshot;
 import com.signal.domain.chat.progress.StageStatus;
 import com.signal.domain.chat.repository.ChatMessageRepository;
 import com.signal.domain.chat.repository.ChatSessionRepository;
-import com.signal.domain.report.entity.Report;
 import com.signal.domain.report.repository.ReportRepository;
 import com.signal.domain.riskassessment.entity.RiskLevel;
 import com.signal.global.exception.ErrorCode;
@@ -187,35 +188,42 @@ class ChatServiceTest {
     }
 
     @Test
-    void 모든_단계가_완료되면_봇이_종료를_제안하고_진행률은_100퍼센트다() {
+    void 마지막_안내_단계까지_전달되면_안내_뒤에_종료를_제안하고_진행률은_100퍼센트다() {
         ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
-        session.recordEngineResult(SituationType.IMAGE_ABUSE, false, true);
-        session.markEvidenceUrlMentioned();
+        session.recordEngineResult(SituationType.IMAGE_ABUSE, false, false);
+        session.updateStageSnapshot(new StageSnapshot(SituationType.IMAGE_ABUSE, Map.of(
+                ConsultationStage.SITUATION_CHECK, StageStatus.COMPLETED,
+                ConsultationStage.EMOTIONAL_SUPPORT, StageStatus.COMPLETED,
+                ConsultationStage.EVIDENCE_PRESERVATION, StageStatus.COMPLETED,
+                ConsultationStage.PLATFORM_REPORT, StageStatus.COMPLETED,
+                ConsultationStage.AGENCY_GUIDANCE, StageStatus.NOT_STARTED)));
         when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
-
-        Report finalizedReport = Report.builder()
-                .userId(1L).description("설명").sourceUrls(List.of("http://a.com")).build();
-        finalizedReport.markFinalized("doc-url");
-        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(finalizedReport));
-
-        ChatEngineResponse engineResponse = new ChatEngineResponse(
-                "평범한 답변", SituationType.IMAGE_ABUSE, List.of(), false, List.of());
-        when(chatEngine.respond(eq("고마워요"), any())).thenReturn(engineResponse);
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        stubPreviousExchange(session);
+        when(chatEngine.respond(eq("고마워요"), any())).thenReturn(new ChatEngineResponse(
+                "평범한 답변", SituationType.IMAGE_ABUSE, List.of(), false, List.of()));
         when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "고마워요");
 
+        String reply = result.engineResponse().reply();
+        assertThat(reply).startsWith("평범한 답변");
+        assertThat(reply).contains("d4u.stop.or.kr");              // 마지막 안내 블록이 사라지지 않는다
+        assertThat(reply).contains("마무리해도 괜찮을까요");          // 그 뒤에 종료 제안이 덧붙는다
+        assertThat(result.engineResponse().recommendedAgencies()).isNotEmpty();
         assertThat(session.isAwaitingEndConfirmation()).isTrue();
+        assertThat(session.isAgenciesRecommended()).isTrue();
         assertThat(result.sessionEnded()).isFalse();
-        assertThat(result.engineResponse().reply()).contains("마무리해도 괜찮을까요");
+        assertThat(result.progress().status()).isEqualTo(ConsultationProgressStatus.COMPLETED);
 
         ChatSummaryResponse summary = chatService.getSummary("session-1", 1L, null);
         assertThat(summary.progressPercent()).isEqualTo(100);
-        assertThat(result.progress().status()).isEqualTo(ConsultationProgressStatus.COMPLETED);
+        assertThat(summary.progress().completedCount()).isEqualTo(5);
+        assertThat(summary.progress().totalCount()).isEqualTo(5);
     }
 
     @Test
-    void 메시지_응답에_현재_단계와_완료_단계와_진행률이_포함된다() {
+    void 이미지_피해의_첫_메시지에는_증거_보존_안내만_붙는다() {
         ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
         when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
         when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
@@ -228,11 +236,138 @@ class ChatServiceTest {
 
         SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "제 사진이 유포됐어요");
 
+        assertThat(result.engineResponse().reply()).startsWith("신고 방법을 알려드릴게요").contains("증거 보존");
+        assertThat(result.engineResponse().reply()).doesNotContain("d4u.stop.or.kr");
         assertThat(result.progress().status()).isEqualTo(ConsultationProgressStatus.IN_PROGRESS);
-        assertThat(result.progress().completedStages())
-                .containsExactly(ConsultationStage.SITUATION_CHECK, ConsultationStage.EMOTIONAL_SUPPORT);
-        assertThat(result.progress().currentStage()).isEqualTo(ConsultationStage.EVIDENCE_PRESERVATION);
+        assertThat(result.progress().completedStages()).containsExactly(ConsultationStage.EVIDENCE_PRESERVATION);
+        assertThat(result.progress().currentStage()).isEqualTo(ConsultationStage.SITUATION_CHECK);
+        assertThat(result.progress().progressPercent()).isEqualTo(20);
+    }
+
+    @Test
+    void 첫_메시지에_증거_URL이_있으면_안내_블록을_붙이지_않는다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        ChatEngineResponse engineResponse = new ChatEngineResponse(
+                "주소를 남겨주셔서 감사해요", SituationType.IMAGE_ABUSE, List.of(), false, List.of());
+        when(chatEngine.respond(eq("유포됐어요 https://example.com/post/1"), any())).thenReturn(engineResponse);
+
+        SendMessageResult result = chatService.sendMessage(
+                "session-1", 1L, null, "유포됐어요 https://example.com/post/1");
+
+        assertThat(result.engineResponse()).isEqualTo(engineResponse);
+        assertThat(result.progress().completedStages()).containsExactly(ConsultationStage.EVIDENCE_PRESERVATION);
+    }
+
+    @Test
+    void 두번째_메시지에는_증거_보존_안내가_붙고_해당_단계와_상황_파악이_완료된다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        stubPreviousExchange(session);
+        when(chatEngine.respond(eq("인스타그램이에요"), any())).thenReturn(new ChatEngineResponse(
+                "인스타그램이군요", SituationType.IMAGE_ABUSE, List.of(), false, List.of()));
+
+        SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "인스타그램이에요");
+
+        assertThat(result.engineResponse().reply()).startsWith("인스타그램이군요").contains("증거 보존");
+        assertThat(result.progress().stages().get(ConsultationStage.EVIDENCE_PRESERVATION))
+                .isEqualTo(StageStatus.COMPLETED);
+        assertThat(result.progress().completedStages()).containsExactly(
+                ConsultationStage.SITUATION_CHECK, ConsultationStage.EVIDENCE_PRESERVATION);
         assertThat(result.progress().progressPercent()).isEqualTo(40);
+    }
+
+    @Test
+    void 일반_상담에서_기관_안내를_마친_뒤_이미지_피해로_바뀌면_이미지_피해_기관을_다시_안내한다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        session.recordEngineResult(SituationType.GENERAL, false, true);
+        session.updateStageSnapshot(new StageSnapshot(SituationType.GENERAL, Map.of(
+                ConsultationStage.SITUATION_CHECK, StageStatus.COMPLETED,
+                ConsultationStage.EMOTIONAL_SUPPORT, StageStatus.COMPLETED,
+                ConsultationStage.AGENCY_GUIDANCE, StageStatus.COMPLETED)));
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        stubPreviousExchange(session);
+        when(chatEngine.respond(eq("사실 제 사진이 합성돼서 유포됐어요"), any())).thenReturn(new ChatEngineResponse(
+                "많이 놀라셨겠어요", SituationType.IMAGE_ABUSE, List.of(), false, List.of()));
+
+        SendMessageResult first = chatService.sendMessage("session-1", 1L, null, "사실 제 사진이 합성돼서 유포됐어요");
+
+        assertThat(first.progress().stages().get(ConsultationStage.AGENCY_GUIDANCE))
+                .isEqualTo(StageStatus.NOT_STARTED);
+        assertThat(first.engineResponse().reply()).contains("증거 보존");   // 이미지 피해라서 증거 보존부터 안내
+
+        when(chatEngine.respond(eq("인스타그램이에요"), any())).thenReturn(new ChatEngineResponse(
+                "인스타그램이군요", SituationType.IMAGE_ABUSE, List.of(), false, List.of()));
+        SendMessageResult second = chatService.sendMessage("session-1", 1L, null, "인스타그램이에요");
+
+        assertThat(second.engineResponse().reply()).contains("d4u.stop.or.kr");
+        assertThat(second.engineResponse().recommendedAgencies()).anyMatch(agency -> agency.contains("1377"));
+    }
+
+    @Test
+    void 단계_판정은_LLM에_넘기는_최근_대화가_아니라_세션_전체의_사용자_메시지_수를_쓴다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        // 오래된 대화라 최근 10개만 넘어가도(history가 비어 있어도) 저장된 사용자 메시지는 이미 많다.
+        when(chatMessageRepository.countByChatSessionIdAndRole(session.getId(), ChatRole.USER)).thenReturn(30L);
+        when(chatEngine.respond(eq("계속 얘기할게요"), any())).thenReturn(new ChatEngineResponse(
+                "네, 말씀하세요", SituationType.GENERAL, List.of(), false, List.of()));
+
+        SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "계속 얘기할게요");
+
+        assertThat(result.progress().stages().get(ConsultationStage.SITUATION_CHECK))
+                .isEqualTo(StageStatus.COMPLETED);
+    }
+
+    @Test
+    void LLM이_모든_단계를_완료로_판단해도_서버는_완료로_인정하지_않는다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(chatEngine.respond(eq("도와주세요"), any())).thenReturn(new ChatEngineResponse(
+                "네, 도와드릴게요", SituationType.IMAGE_ABUSE, List.of(), false, List.of()));
+        Map<ConsultationStage, StageStatus> allCompleted = new java.util.EnumMap<>(ConsultationStage.class);
+        for (ConsultationStage stage : ConsultationStage.values()) {
+            allCompleted.put(stage, StageStatus.COMPLETED);
+        }
+        when(stageAnalyzer.analyze(any(), any(), any())).thenReturn(allCompleted);
+
+        SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "도와주세요");
+
+        assertThat(result.progress().status()).isEqualTo(ConsultationProgressStatus.IN_PROGRESS);
+        // LLM이 완료라고 해도 서버가 안내를 내보낸 증거 보존만 완료다(첫 메시지의 이미지 피해 증거 안내).
+        assertThat(result.progress().completedStages()).containsExactly(ConsultationStage.EVIDENCE_PRESERVATION);
+        assertThat(result.progress().stages().get(ConsultationStage.AGENCY_GUIDANCE))
+                .isEqualTo(StageStatus.IN_PROGRESS);
+        assertThat(session.isAwaitingEndConfirmation()).isFalse();
+    }
+
+    @Test
+    void 위기_메시지에는_안내_블록과_종료_제안을_붙이지_않는다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        stubPreviousExchange(session);
+        ChatEngineResponse crisis = new ChatEngineResponse(
+                "위기 응답", SituationType.IMAGE_ABUSE, List.of("상담 연결"), true, List.of("자살예방 상담전화 (109)"));
+        when(chatEngine.respond(eq("죽고 싶어요"), any())).thenReturn(crisis);
+
+        SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "죽고 싶어요");
+
+        assertThat(result.engineResponse()).isEqualTo(crisis);
+        assertThat(session.isAwaitingEndConfirmation()).isFalse();
+        assertThat(result.progress().stages().get(ConsultationStage.EMOTIONAL_SUPPORT))
+                .isEqualTo(StageStatus.IN_PROGRESS);
     }
 
     @Test
@@ -249,8 +384,19 @@ class ChatServiceTest {
 
         assertThat(result.progress().stages().get(ConsultationStage.EVIDENCE_PRESERVATION))
                 .isEqualTo(StageStatus.NOT_APPLICABLE);
-        // 룰 기반 폴백: 정서 안정만 완료, 3개 단계 중 1개 -> 33%
-        assertThat(result.progress().progressPercent()).isEqualTo(33);
+        // 인사만 한 첫 메시지는 어떤 단계도 완료시키지 않는다(예전에는 정서 안정이 자동 완료돼 33%였다).
+        assertThat(result.progress().progressPercent()).isZero();
+        assertThat(ConsultationProgressResponse.from(result.progress()).totalCount()).isEqualTo(3);
+    }
+
+    private void stubPreviousExchange(ChatSession session) {
+        ChatMessage prevUser = ChatMessage.builder()
+                .chatSessionId(session.getId()).role(ChatRole.USER).content("전에 한 말").build();
+        ChatMessage prevBot = ChatMessage.builder()
+                .chatSessionId(session.getId()).role(ChatRole.BOT).content("전에 답한 말").build();
+        when(chatMessageRepository.findByChatSessionIdOrderByCreatedAtAsc(session.getId()))
+                .thenReturn(List.of(prevUser, prevBot));
+        when(chatMessageRepository.countByChatSessionIdAndRole(session.getId(), ChatRole.USER)).thenReturn(1L);
     }
 
     @Test

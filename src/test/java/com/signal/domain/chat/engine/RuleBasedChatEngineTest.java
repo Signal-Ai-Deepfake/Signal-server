@@ -2,6 +2,8 @@ package com.signal.domain.chat.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.signal.global.i18n.LanguageContext;
+import com.signal.global.i18n.ResponseLanguage;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -44,5 +46,41 @@ class RuleBasedChatEngineTest {
         assertThat(response.situationType()).isEqualTo(SituationType.IMAGE_ABUSE);
         assertThat(response.crisisDetected()).isTrue();
         assertThat(response.recommendedAgencies()).isNotEmpty();
+    }
+
+    @Test
+    void 위기_기관_목록은_109를_포함하고_폐지된_1393을_안내하지_않는다() {
+        ChatEngineResponse response = chatEngine.respond("자살하고 싶어요", List.of());
+
+        assertThat(response.recommendedAgencies()).anyMatch(agency -> agency.contains("109"));
+        assertThat(response.recommendedAgencies()).noneMatch(agency -> agency.contains("1393"));
+    }
+
+    @Test
+    void Accept_Language가_영어면_위기_응답과_기관명이_영어로_나간다() {
+        LanguageContext.set(ResponseLanguage.EN);
+        try {
+            ChatEngineResponse response = chatEngine.respond("I want to die", List.of());
+
+            assertThat(response.crisisDetected()).isTrue();
+            assertThat(response.reply()).startsWith("That sounds");
+            assertThat(response.recommendedAgencies()).anyMatch(agency -> agency.contains("Suicide Prevention"));
+            assertThat(response.suggestedActions()).anyMatch(action -> action.contains("support service"));
+        } finally {
+            LanguageContext.clear();
+        }
+    }
+
+    @Test
+    void 한국어_헤더가_아니어도_다른_언어의_위기_표현을_감지한다() {
+        assertThat(chatEngine.respond("もう死にたいです", List.of()).crisisDetected()).isTrue();
+        assertThat(chatEngine.respond("我不想活了", List.of()).crisisDetected()).isTrue();
+    }
+
+    @Test
+    void 영어_딥페이크_표현도_IMAGE_ABUSE로_분류한다() {
+        ChatEngineResponse response = chatEngine.respond("Someone made a deepfake of me", List.of());
+
+        assertThat(response.situationType()).isEqualTo(SituationType.IMAGE_ABUSE);
     }
 }
