@@ -5,6 +5,8 @@ import java.util.List;
 
 /**
  * 챗봇이 안내하는 기관 목록. 연락처는 사람이 정기적으로 확인해야 하는 데이터라 한곳에 모아 둔다.
+ * 위기 응답·안내 블록 문장({@link GuidanceText})에도 일부 번호가 들어 있어서, 그 번호가 이 목록에 있는 번호와
+ * 일치하는지 GuidanceTextTest가 검증한다. 번호를 바꾸면 문장도 함께 고쳐야 한다.
  * 검증 근거와 확인하지 못한 항목은 docs/chat-guidance.md에 적어 두었다. 번호를 바꿀 때는 이 파일만 고친다.
  *
  * 마지막 검토일: 2026-10-28 (공식 보도자료·정부 공지 기준, 일부 항목은 릴리스 전 재확인 필요)
@@ -54,6 +56,20 @@ public final class AgencyCatalog {
     /** 일반 상담에서 마음이 힘들 때 안내하는 곳. */
     public static List<String> generalSupport(ResponseLanguage language) {
         return format(language, SUICIDE_PREVENTION, YOUTH_LINE);
+    }
+
+    /** 모든 목록에 나오는 3자리 이상 숫자. 문장에 쓰인 번호가 목록과 일치하는지 검증할 때 쓴다. */
+    public static java.util.Set<String> knownNumbers() {
+        java.util.Set<String> numbers = new java.util.TreeSet<>();
+        java.util.regex.Pattern digits = java.util.regex.Pattern.compile("\\d{3,}");
+        for (ResponseLanguage language : ResponseLanguage.values()) {
+            for (java.util.List<String> list : List.of(crisis(language), imageAbuse(language), generalSupport(language))) {
+                for (String agency : list) {
+                    digits.matcher(agency).results().forEach(match -> numbers.add(match.group()));
+                }
+            }
+        }
+        return numbers;
     }
 
     private static List<String> format(ResponseLanguage language, Agency... agencies) {

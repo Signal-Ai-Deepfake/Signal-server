@@ -53,4 +53,28 @@ class GuidanceTextTest {
     void 더_이야기하고_싶다는_답은_종료로_판단하지_않는다(String reply) {
         assertThat(GuidanceText.isEndConfirmation(reply)).isFalse();
     }
+
+    @Test
+    void 문장에_쓰인_기관_번호는_모두_기관_목록에_있는_번호다() {
+        java.util.Set<String> known = AgencyCatalog.knownNumbers();
+        assertThat(known).contains("109", "112", "119", "1377", "1388");
+        java.util.regex.Pattern digits = java.util.regex.Pattern.compile("\\d{3,}");
+
+        for (ResponseLanguage language : ResponseLanguage.values()) {
+            java.util.List<String> texts = new java.util.ArrayList<>();
+            texts.add(GuidanceText.crisisReply(language));
+            for (ConsultationStage stage : ConsultationStage.values()) {
+                for (SituationType type : SituationType.values()) {
+                    String block = GuidanceText.guidanceBlock(stage, type, language);
+                    if (block != null) {
+                        texts.add(block);
+                    }
+                }
+            }
+            for (String text : texts) {
+                digits.matcher(text).results().forEach(match ->
+                        assertThat(known).as("문장에 있는 번호 %s (%s)", match.group(), language).contains(match.group()));
+            }
+        }
+    }
 }
