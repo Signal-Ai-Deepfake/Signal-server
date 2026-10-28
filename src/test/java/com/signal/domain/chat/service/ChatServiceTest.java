@@ -31,6 +31,8 @@ import com.signal.domain.report.repository.ReportRepository;
 import com.signal.domain.riskassessment.entity.RiskLevel;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
+import com.signal.global.i18n.LanguageContext;
+import com.signal.global.i18n.ResponseLanguage;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -185,6 +187,59 @@ class ChatServiceTest {
         assertThat(summary.progress().status()).isEqualTo(ConsultationProgressStatus.NOT_STARTED);
         assertThat(summary.progress().currentStage()).isNull();
         assertThat(summary.recommendedSteps()).containsExactly("증거 보존", "플랫폼 신고", "전문 기관 상담");
+        assertThat(summary.recommendedStepCodes()).hasSize(3);
+    }
+
+    @Test
+    void 요약은_요청_언어로_상황과_남은_단계를_반환한다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        LanguageContext.set(ResponseLanguage.EN);
+        try {
+            ChatSummaryResponse summary = chatService.getSummary("session-1", 1L, null);
+
+            assertThat(summary.situation()).isEqualTo("Before the session");
+            assertThat(summary.riskDescription()).isEqualTo("No particular warning signs.");
+            assertThat(summary.recommendedSteps()).containsExactly(
+                    "Preserve evidence", "Report to the platform", "Contact a support organization");
+            // 표시 문구는 언어마다 달라도 코드는 같다.
+            assertThat(summary.recommendedStepCodes()).containsExactly(
+                    ConsultationStage.EVIDENCE_PRESERVATION,
+                    ConsultationStage.PLATFORM_REPORT,
+                    ConsultationStage.AGENCY_GUIDANCE);
+        } finally {
+            LanguageContext.clear();
+        }
+    }
+
+    @Test
+    void 남은_단계는_서버가_기록한_단계_상태를_기준으로_계산한다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        session.recordEngineResult(SituationType.IMAGE_ABUSE, false, false);
+        session.updateStageSnapshot(new StageSnapshot(SituationType.IMAGE_ABUSE, Map.of(
+                ConsultationStage.EVIDENCE_PRESERVATION, StageStatus.COMPLETED,
+                ConsultationStage.PLATFORM_REPORT, StageStatus.COMPLETED,
+                ConsultationStage.AGENCY_GUIDANCE, StageStatus.NOT_STARTED)));
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+
+        ChatSummaryResponse summary = chatService.getSummary("session-1", 1L, null);
+        assertThat(summary.recommendedSteps()).containsExactly("전문 기관 상담");
+        assertThat(summary.recommendedStepCodes()).containsExactly(ConsultationStage.AGENCY_GUIDANCE);
+    }
+
+    @Test
+    void 일반_상담의_남은_단계에는_증거_보존과_신고가_나오지_않는다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        session.recordEngineResult(SituationType.GENERAL, false, false);
+        session.updateStageSnapshot(new StageSnapshot(SituationType.GENERAL, Map.of(
+                ConsultationStage.AGENCY_GUIDANCE, StageStatus.NOT_STARTED)));
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+
+        assertThat(chatService.getSummary("session-1", 1L, null).recommendedSteps())
+                .containsExactly("전문 기관 상담");
     }
 
     @Test

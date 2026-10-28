@@ -77,4 +77,18 @@ class GuidanceTextTest {
             }
         }
     }
+
+    @ParameterizedTest
+    @EnumSource(ResponseLanguage.class)
+    void 상담_요약_문구가_모든_언어에_있다(ResponseLanguage language) {
+        assertThat(GuidanceText.summarySituation(null, false, language)).isNotBlank();
+        assertThat(GuidanceText.summarySituation(SituationType.IMAGE_ABUSE, true, language)).isNotBlank();
+        assertThat(GuidanceText.summarySituation(SituationType.GENERAL, false, language)).isNotBlank();
+        for (com.signal.domain.riskassessment.entity.RiskLevel level
+                : com.signal.domain.riskassessment.entity.RiskLevel.values()) {
+            assertThat(GuidanceText.summaryRiskDescription(level, language)).isNotBlank();
+        }
+        assertThat(GuidanceText.stepLabel(ConsultationStage.EVIDENCE_PRESERVATION, language)).isNotBlank();
+        assertThat(GuidanceText.stepLabel(ConsultationStage.SITUATION_CHECK, language)).isNull();
+    }
 }

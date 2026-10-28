@@ -21,6 +21,7 @@ import com.signal.domain.chat.progress.ConsultationStage;
 import com.signal.domain.chat.progress.StageFacts;
 import com.signal.domain.chat.progress.StageRules;
 import com.signal.domain.chat.progress.StageSnapshot;
+import com.signal.domain.chat.progress.StageStatus;
 import com.signal.domain.chat.repository.ChatSessionRepository;
 import com.signal.domain.report.entity.Report;
 import com.signal.domain.report.entity.ReportStatus;
@@ -205,9 +206,12 @@ public class ChatService {
 
         ConsultationProgress progress = ConsultationProgress.from(session.getStageSnapshot());
 
+        List<ConsultationStage> remaining = remainingStages(session, reportFinalized);
+        ResponseLanguage language = LanguageContext.current();
         return new ChatSummaryResponse(
                 describeSituation(session),
-                recommendedSteps(session, reportFinalized),
+                remaining.stream().map(stage -> GuidanceText.stepLabel(stage, language)).toList(),
+                remaining,
                 riskLevel(session),
                 riskDescription(session),
                 progress.progressPercent(),
@@ -223,28 +227,38 @@ public class ChatService {
     }
 
     private String describeSituation(ChatSession session) {
-        SituationType situationType = session.getLastSituationType();
-        if (situationType == null) {
-            return "상담 시작 전";
-        }
-        if (situationType == SituationType.IMAGE_ABUSE) {
-            return session.isLastCrisisDetected() ? "이미지 도용·유포로 인한 위기 상황" : "이미지 도용·유포 피해 상담";
-        }
-        return session.isLastCrisisDetected() ? "정서적 위기 상황" : "일반 상담";
+        return GuidanceText.summarySituation(
+                session.getLastSituationType(), session.isLastCrisisDetected(), LanguageContext.current());
     }
 
-    private List<String> recommendedSteps(ChatSession session, boolean reportFinalized) {
-        List<String> steps = new ArrayList<>();
-        if (!session.isEvidenceUrlMentioned()) {
-            steps.add("증거 보존");
+    /**
+     * 아직 남은 안내 단계. 단계 상태(서버가 결정한 완료 여부)를 기준으로 하며, 상담 전이면 이미지 피해 기준의 전체 목록이다.
+     * 상담 전에는 상황 유형을 알 수 없어 일부러 전체 단계를 보여 주고, 첫 메시지로 유형이 정해지면 유형에 맞게 줄어든다
+     * (일반 상담이면 증거 보존·플랫폼 신고가 사라진다).
+     * 마지막 메시지 이후에 신고 문서를 확정했을 수 있어서 신고 단계는 문서 상태도 함께 본다.
+     */
+    private List<ConsultationStage> remainingStages(ChatSession session, boolean reportFinalized) {
+        StageSnapshot snapshot = session.getStageSnapshot();
+        SituationType type = snapshot == null ? SituationType.IMAGE_ABUSE : snapshot.type();
+        List<ConsultationStage> remaining = new ArrayList<>();
+        for (ConsultationStage stage : List.of(
+                ConsultationStage.EVIDENCE_PRESERVATION,
+                ConsultationStage.PLATFORM_REPORT,
+                ConsultationStage.AGENCY_GUIDANCE)) {
+            if (!stage.isApplicableTo(type)) {
+                continue;
+            }
+            StageStatus status = snapshot == null
+                    ? StageStatus.NOT_STARTED
+                    : snapshot.stages().getOrDefault(stage, StageStatus.NOT_STARTED);
+            boolean done = status == StageStatus.COMPLETED
+                    || (stage == ConsultationStage.PLATFORM_REPORT && reportFinalized)
+                    || (stage == ConsultationStage.EVIDENCE_PRESERVATION && session.isEvidenceUrlMentioned());
+            if (!done) {
+                remaining.add(stage);
+            }
         }
-        if (!reportFinalized) {
-            steps.add("플랫폼 신고");
-        }
-        if (!session.isAgenciesRecommended()) {
-            steps.add("전문 기관 상담");
-        }
-        return steps;
+        return remaining;
     }
 
     private RiskLevel riskLevel(ChatSession session) {
@@ -258,11 +272,7 @@ public class ChatService {
     }
 
     private String riskDescription(ChatSession session) {
-        return switch (riskLevel(session)) {
-            case HIGH -> "위험 신호가 감지되어 긴급한 조치가 필요해요.";
-            case MEDIUM -> "확산 여부를 확인하고 있어요.";
-            case LOW -> "특별한 위험 신호는 없어요.";
-        };
+        return GuidanceText.summaryRiskDescription(riskLevel(session), LanguageContext.current());
     }
 
     @Transactional

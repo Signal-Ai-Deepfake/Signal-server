@@ -50,6 +50,48 @@ class GroqChatClientTest {
     }
 
     @Test
+    void system_메시지는_기관_번호를_LLM이_말하지_못하게_하고_서버_안내와_중복을_피하게_한다() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400, "low");
+
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.messages[0].content", containsString("전화번호")))
+                .andExpect(jsonPath("$.messages[0].content", containsString("서버가")))
+                .andExpect(jsonPath("$.messages[0].content", containsString("질문은 한 번에 하나만")))
+                .andRespond(withSuccess(
+                        """
+                        {"choices":[{"message":{"role":"assistant","content":"많이 놀라셨겠어요."}}]}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.complete("제 사진이 유포됐어요", SituationType.IMAGE_ABUSE, List.of()))
+                .isEqualTo("많이 놀라셨겠어요.");
+        server.verify();
+    }
+
+    @Test
+    void 기본_프롬프트는_언어를_한국어로_고정하지_않고_언어_지시를_따르게_한다() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        GroqChatClient client = new GroqChatClient(builder, BASE_URL, "test-key", "openai/gpt-oss-120b", 400, "low");
+        LanguageContext.set(ResponseLanguage.EN);
+
+        server.expect(requestTo(BASE_URL + "/chat/completions"))
+                .andExpect(jsonPath("$.messages[0].content", not(containsString("항상 한국어"))))
+                .andExpect(jsonPath("$.messages[0].content", containsString("응답 언어 지시가 따로 있으면")))
+                .andExpect(jsonPath("$.messages[0].content", containsString("English")))
+                .andRespond(withSuccess(
+                        """
+                        {"choices":[{"message":{"role":"assistant","content":"Hello"}}]}
+                        """,
+                        MediaType.APPLICATION_JSON));
+
+        assertThat(client.complete("hi", SituationType.GENERAL, List.of())).isEqualTo("Hello");
+        server.verify();
+    }
+
+    @Test
     void 언어가_지정되지_않으면_system_메시지에_언어_지시를_더하지_않는다() {
         RestClient.Builder builder = RestClient.builder();
         MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();

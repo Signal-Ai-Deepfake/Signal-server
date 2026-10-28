@@ -34,6 +34,30 @@ class LlmChatEngineTest {
     }
 
     @Test
+    void LLM이_기관_목록에_없는_번호를_말하면_룰_기반_답변으로_대체한다() {
+        LlmChatEngine engine = new LlmChatEngine(chatCompletionClient, true);
+        when(chatCompletionClient.complete("안녕하세요", SituationType.GENERAL, List.of()))
+                .thenReturn("도움이 필요하면 1234-5678로 전화해보세요.");
+
+        ChatEngineResponse response = engine.respond("안녕하세요", List.of());
+
+        assertThat(response.reply()).doesNotContain("1234");
+        assertThat(response.reply()).isEqualTo(
+                "말씀해주셔서 감사해요. 조금 더 자세히 상황을 알려주시면 도와드릴게요.");
+    }
+
+    @Test
+    void LLM이_기관_목록에_있는_번호나_연도_퍼센트를_말하는_것은_허용한다() {
+        LlmChatEngine engine = new LlmChatEngine(chatCompletionClient, true);
+        when(chatCompletionClient.complete("안녕하세요", SituationType.GENERAL, List.of()))
+                .thenReturn("2024년 이후 109로 통합됐고 100% 무료예요.");
+
+        ChatEngineResponse response = engine.respond("안녕하세요", List.of());
+
+        assertThat(response.reply()).isEqualTo("2024년 이후 109로 통합됐고 100% 무료예요.");
+    }
+
+    @Test
     void 이전_대화_기록을_LLM_호출에_그대로_전달한다() {
         LlmChatEngine engine = new LlmChatEngine(chatCompletionClient, true);
         List<ChatTurn> history = List.of(
