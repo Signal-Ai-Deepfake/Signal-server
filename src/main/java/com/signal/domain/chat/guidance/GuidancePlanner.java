@@ -12,7 +12,9 @@ import java.util.Optional;
  *
  * 규칙:
  * - 위기 메시지에는 붙이지 않는다(위기 응답만 보낸다).
- * - 첫 메시지에는 붙이지 않는다. 먼저 들어주고 상황을 묻는 게 우선이다.
+ * - 첫 메시지에는 원칙적으로 붙이지 않는다. 먼저 들어주고 상황을 묻는 게 우선이다.
+ *   다만 첫 메시지에서 이미지 피해가 드러났고 증거(URL)가 아직 없으면 증거 보존 안내만 바로 붙인다.
+ *   게시물은 삭제되거나 확산되기 전에 남겨야 해서 시간이 중요하기 때문이다.
  * - 이미지 피해는 증거 보존 → 기관 → 플랫폼 신고 → 정서 확인 순서, 일반 상담은 정서 확인 → 기관 순서다.
  *   증거는 시간이 지나면 사라지므로 가장 먼저, 정서 확인은 앞선 안내를 읽은 뒤에 건넨다.
  */
@@ -33,8 +35,14 @@ public final class GuidancePlanner {
 
     public static Optional<ConsultationStage> next(
             SituationType type, Map<ConsultationStage, StageStatus> stages, int userTurns, boolean crisisNow) {
-        if (crisisNow || userTurns < 2) {
+        if (crisisNow) {
             return Optional.empty();
+        }
+        if (userTurns < 2) {
+            boolean evidencePending = type == SituationType.IMAGE_ABUSE
+                    && stages.getOrDefault(ConsultationStage.EVIDENCE_PRESERVATION, StageStatus.NOT_STARTED)
+                    != StageStatus.COMPLETED;
+            return evidencePending ? Optional.of(ConsultationStage.EVIDENCE_PRESERVATION) : Optional.empty();
         }
         List<ConsultationStage> order = type == SituationType.IMAGE_ABUSE ? ORDER_IMAGE_ABUSE : ORDER_GENERAL;
         for (ConsultationStage stage : order) {

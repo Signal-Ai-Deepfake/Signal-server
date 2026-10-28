@@ -20,9 +20,23 @@ class GuidancePlannerTest {
     }
 
     @Test
-    void 첫_메시지와_위기_메시지에는_안내를_붙이지_않는다() {
-        assertThat(GuidancePlanner.next(SituationType.IMAGE_ABUSE, stages(), 1, false)).isEmpty();
+    void 위기_메시지와_일반_상담의_첫_메시지에는_안내를_붙이지_않는다() {
+        assertThat(GuidancePlanner.next(SituationType.GENERAL, stages(), 1, false)).isEmpty();
         assertThat(GuidancePlanner.next(SituationType.IMAGE_ABUSE, stages(), 5, true)).isEmpty();
+        assertThat(GuidancePlanner.next(SituationType.IMAGE_ABUSE, stages(), 1, true)).isEmpty();
+    }
+
+    @Test
+    void 이미지_피해의_첫_메시지에는_증거_보존_안내만_붙인다() {
+        assertThat(GuidancePlanner.next(SituationType.IMAGE_ABUSE, stages(), 1, false))
+                .contains(ConsultationStage.EVIDENCE_PRESERVATION);
+    }
+
+    @Test
+    void 첫_메시지에_이미_증거가_있으면_아무것도_붙이지_않는다() {
+        Map<ConsultationStage, StageStatus> stages = stages(
+                ConsultationStage.EVIDENCE_PRESERVATION, StageStatus.COMPLETED);
+        assertThat(GuidancePlanner.next(SituationType.IMAGE_ABUSE, stages, 1, false)).isEmpty();
     }
 
     @Test

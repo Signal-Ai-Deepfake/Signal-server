@@ -223,25 +223,42 @@ class ChatServiceTest {
     }
 
     @Test
-    void 첫_메시지에는_안내_블록이_붙지_않고_진행률은_0이다() {
+    void 이미지_피해의_첫_메시지에는_증거_보존_안내만_붙는다() {
         ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
         when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
         when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
         when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        ChatEngineResponse engineResponse = new ChatEngineResponse(
-                "신고 방법을 알려드릴게요", SituationType.IMAGE_ABUSE, List.of(), false, List.of());
-        when(chatEngine.respond(eq("제 사진이 유포됐어요"), any())).thenReturn(engineResponse);
+        when(chatEngine.respond(eq("제 사진이 유포됐어요"), any())).thenReturn(new ChatEngineResponse(
+                "신고 방법을 알려드릴게요", SituationType.IMAGE_ABUSE, List.of(), false, List.of()));
         when(stageAnalyzer.analyze(any(), any(), any())).thenReturn(Map.of(
                 ConsultationStage.EVIDENCE_PRESERVATION, StageStatus.IN_PROGRESS,
                 ConsultationStage.PLATFORM_REPORT, StageStatus.IN_PROGRESS));
 
         SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "제 사진이 유포됐어요");
 
-        assertThat(result.engineResponse()).isEqualTo(engineResponse);
+        assertThat(result.engineResponse().reply()).startsWith("신고 방법을 알려드릴게요").contains("증거 보존");
+        assertThat(result.engineResponse().reply()).doesNotContain("d4u.stop.or.kr");
         assertThat(result.progress().status()).isEqualTo(ConsultationProgressStatus.IN_PROGRESS);
-        assertThat(result.progress().completedStages()).isEmpty();
+        assertThat(result.progress().completedStages()).containsExactly(ConsultationStage.EVIDENCE_PRESERVATION);
         assertThat(result.progress().currentStage()).isEqualTo(ConsultationStage.SITUATION_CHECK);
-        assertThat(result.progress().progressPercent()).isZero();
+        assertThat(result.progress().progressPercent()).isEqualTo(20);
+    }
+
+    @Test
+    void 첫_메시지에_증거_URL이_있으면_안내_블록을_붙이지_않는다() {
+        ChatSession session = ChatSession.builder().sessionId("session-1").userId(1L).build();
+        when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
+        when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
+        when(chatMessageRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        ChatEngineResponse engineResponse = new ChatEngineResponse(
+                "주소를 남겨주셔서 감사해요", SituationType.IMAGE_ABUSE, List.of(), false, List.of());
+        when(chatEngine.respond(eq("유포됐어요 https://example.com/post/1"), any())).thenReturn(engineResponse);
+
+        SendMessageResult result = chatService.sendMessage(
+                "session-1", 1L, null, "유포됐어요 https://example.com/post/1");
+
+        assertThat(result.engineResponse()).isEqualTo(engineResponse);
+        assertThat(result.progress().completedStages()).containsExactly(ConsultationStage.EVIDENCE_PRESERVATION);
     }
 
     @Test
@@ -327,7 +344,10 @@ class ChatServiceTest {
         SendMessageResult result = chatService.sendMessage("session-1", 1L, null, "도와주세요");
 
         assertThat(result.progress().status()).isEqualTo(ConsultationProgressStatus.IN_PROGRESS);
-        assertThat(result.progress().completedStages()).isEmpty();
+        // LLM이 완료라고 해도 서버가 안내를 내보낸 증거 보존만 완료다(첫 메시지의 이미지 피해 증거 안내).
+        assertThat(result.progress().completedStages()).containsExactly(ConsultationStage.EVIDENCE_PRESERVATION);
+        assertThat(result.progress().stages().get(ConsultationStage.AGENCY_GUIDANCE))
+                .isEqualTo(StageStatus.IN_PROGRESS);
         assertThat(session.isAwaitingEndConfirmation()).isFalse();
     }
 
