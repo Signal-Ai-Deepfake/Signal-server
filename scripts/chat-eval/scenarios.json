@@ -1,0 +1,502 @@
+{
+  "version": 1,
+  "scenarios": [
+    {
+      "id": "crisis-01-ko",
+      "lang": "ko",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "너무 힘들어서 자살 생각이 들어요"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "crisis-02-ko",
+      "lang": "ko",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "그냥 죽고 싶어요"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "crisis-03-ko",
+      "lang": "ko",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "더는 살기 싫어요"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "crisis-04-en",
+      "lang": "en",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "I just want to die"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "crisis-05-en",
+      "lang": "en",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "I keep thinking about suicide"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "crisis-06-en",
+      "lang": "en",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "I want to kill myself"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "crisis-07-ja",
+      "lang": "ja",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "もう死にたいです"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "crisis-08-ja",
+      "lang": "ja",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "消えたい。自傷してしまいました"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "crisis-09-zh-CN",
+      "lang": "zh-CN",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "我不想活了"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "crisis-10-zh-CN",
+      "lang": "zh-CN",
+      "description": "위기 신호 단문: 위기로 감지되고 기관이 안내되며 안내 블록·종료 제안이 붙지 않는다",
+      "turns": [
+        "我想自杀"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "crisis_agencies_contain": "109",
+        "forbid_in_reply": [
+          "1393",
+          "1577-0199"
+        ],
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "abuse-flow-ko",
+      "lang": "ko",
+      "description": "이미지 피해 6턴: 첫 턴 진행률 0, 2턴 증거, 3턴 기관, 4턴 신고, 5턴 정서 확인, 6턴 완료 후 종료 제안 1회",
+      "turns": [
+        "제 사진이 합성돼서 유포됐어요",
+        "인스타그램에 올라왔어요",
+        "잘 모르겠어요",
+        "그렇군요",
+        "네",
+        "네 괜찮아요"
+      ],
+      "expect": {
+        "progress_zero_on_first_turn": true,
+        "stage_completed_by_turn": {
+          "EVIDENCE_PRESERVATION": 1,
+          "AGENCY_GUIDANCE": 2,
+          "PLATFORM_REPORT": 3,
+          "EMOTIONAL_SUPPORT": 5
+        },
+        "final_status": "COMPLETED",
+        "end_prompt_exactly_once": true,
+        "monotonic_progress": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "IMAGE_ABUSE"
+      }
+    },
+    {
+      "id": "abuse-flow-en",
+      "lang": "en",
+      "description": "이미지 피해 6턴: 첫 턴 진행률 0, 2턴 증거, 3턴 기관, 4턴 신고, 5턴 정서 확인, 6턴 완료 후 종료 제안 1회",
+      "turns": [
+        "Someone made a deepfake of my photo and posted it",
+        "It is on Instagram",
+        "I am not sure what to do",
+        "I see",
+        "Yes",
+        "Yes I am okay"
+      ],
+      "expect": {
+        "progress_zero_on_first_turn": true,
+        "stage_completed_by_turn": {
+          "EVIDENCE_PRESERVATION": 1,
+          "AGENCY_GUIDANCE": 2,
+          "PLATFORM_REPORT": 3,
+          "EMOTIONAL_SUPPORT": 5
+        },
+        "final_status": "COMPLETED",
+        "end_prompt_exactly_once": true,
+        "monotonic_progress": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "IMAGE_ABUSE"
+      }
+    },
+    {
+      "id": "abuse-flow-ja",
+      "lang": "ja",
+      "description": "이미지 피해 6턴: 첫 턴 진행률 0, 2턴 증거, 3턴 기관, 4턴 신고, 5턴 정서 확인, 6턴 완료 후 종료 제안 1회",
+      "turns": [
+        "私の写真が合成されて流出しました",
+        "インスタグラムに載っています",
+        "どうすればいいかわかりません",
+        "そうですか",
+        "はい",
+        "はい、大丈夫です"
+      ],
+      "expect": {
+        "progress_zero_on_first_turn": true,
+        "stage_completed_by_turn": {
+          "EVIDENCE_PRESERVATION": 1,
+          "AGENCY_GUIDANCE": 2,
+          "PLATFORM_REPORT": 3,
+          "EMOTIONAL_SUPPORT": 5
+        },
+        "final_status": "COMPLETED",
+        "end_prompt_exactly_once": true,
+        "monotonic_progress": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "IMAGE_ABUSE"
+      }
+    },
+    {
+      "id": "abuse-flow-zh-CN",
+      "lang": "zh-CN",
+      "description": "이미지 피해 6턴: 첫 턴 진행률 0, 2턴 증거, 3턴 기관, 4턴 신고, 5턴 정서 확인, 6턴 완료 후 종료 제안 1회",
+      "turns": [
+        "我的照片被合成并传播了",
+        "在Instagram上",
+        "我不知道该怎么办",
+        "这样啊",
+        "好的",
+        "好的,我没事"
+      ],
+      "expect": {
+        "progress_zero_on_first_turn": true,
+        "stage_completed_by_turn": {
+          "EVIDENCE_PRESERVATION": 1,
+          "AGENCY_GUIDANCE": 2,
+          "PLATFORM_REPORT": 3,
+          "EMOTIONAL_SUPPORT": 5
+        },
+        "final_status": "COMPLETED",
+        "end_prompt_exactly_once": true,
+        "monotonic_progress": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "IMAGE_ABUSE"
+      }
+    },
+    {
+      "id": "general-flow-ko",
+      "lang": "ko",
+      "description": "일반 상담 3턴: 정서 확인 → 기관 안내 → 완료",
+      "turns": [
+        "요즘 마음이 좀 힘들어요",
+        "직장 때문이에요",
+        "잘 모르겠어요",
+        "그래도 얘기하니 낫네요"
+      ],
+      "expect": {
+        "progress_zero_on_first_turn": true,
+        "stage_completed_by_turn": {
+          "AGENCY_GUIDANCE": 2
+        },
+        "monotonic_progress": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "GENERAL"
+      }
+    },
+    {
+      "id": "general-flow-en",
+      "lang": "en",
+      "description": "General counseling in English",
+      "turns": [
+        "I have been feeling down lately",
+        "It is about work",
+        "Not sure",
+        "Talking helps a bit"
+      ],
+      "expect": {
+        "progress_zero_on_first_turn": true,
+        "monotonic_progress": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "GENERAL"
+      }
+    },
+    {
+      "id": "crisis-mid-abuse-ko",
+      "lang": "ko",
+      "description": "이미지 피해 상담 중 위기: 위기 턴에는 블록·종료 제안 없음, 정서 단계는 완료가 아님",
+      "turns": [
+        "제 사진이 유포됐어요",
+        "인스타그램이에요",
+        "너무 힘들어서 죽고 싶어요"
+      ],
+      "expect": {
+        "crisis_turns": [
+          2
+        ],
+        "crisis_agencies_contain": "109",
+        "stage_status_at_turn": {
+          "EMOTIONAL_SUPPORT": [
+            2,
+            "IN_PROGRESS"
+          ]
+        },
+        "no_end_prompt": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "IMAGE_ABUSE"
+      }
+    },
+    {
+      "id": "crisis-recovery-ko",
+      "lang": "ko",
+      "description": "위기 직후 위기 없는 답을 받으면 정서 안정이 완료된다",
+      "turns": [
+        "자살하고 싶어요",
+        "조금 나아졌어요"
+      ],
+      "expect": {
+        "crisis_turns": [
+          0
+        ],
+        "stage_completed_by_turn": {
+          "EMOTIONAL_SUPPORT": 1
+        },
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "evidence-url-ko",
+      "lang": "ko",
+      "description": "첫 메시지에 URL을 남기면 증거 보존 단계가 바로 완료된다",
+      "turns": [
+        "제 사진이 유포됐어요 https://example.com/post/1"
+      ],
+      "expect": {
+        "stage_completed_by_turn": {
+          "EVIDENCE_PRESERVATION": 0
+        },
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "IMAGE_ABUSE"
+      }
+    },
+    {
+      "id": "benign-0-ko",
+      "lang": "ko",
+      "description": "일상 메시지는 위기·이미지 피해로 분류하지 않는다",
+      "turns": [
+        "안녕하세요"
+      ],
+      "expect": {
+        "crisis_turns": [],
+        "progress_zero_on_first_turn": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "GENERAL"
+      }
+    },
+    {
+      "id": "benign-1-ko",
+      "lang": "ko",
+      "description": "일상 메시지는 위기·이미지 피해로 분류하지 않는다",
+      "turns": [
+        "오늘 날씨가 좋네요"
+      ],
+      "expect": {
+        "crisis_turns": [],
+        "progress_zero_on_first_turn": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "GENERAL"
+      }
+    },
+    {
+      "id": "benign-2-ko",
+      "lang": "ko",
+      "description": "일상 메시지는 위기·이미지 피해로 분류하지 않는다",
+      "turns": [
+        "요즘 일이 바빠서 피곤해요"
+      ],
+      "expect": {
+        "crisis_turns": [],
+        "progress_zero_on_first_turn": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "GENERAL"
+      }
+    },
+    {
+      "id": "benign-en",
+      "lang": "en",
+      "description": "Everyday English message is not flagged",
+      "turns": [
+        "Hello, I had a tough day at work"
+      ],
+      "expect": {
+        "crisis_turns": [],
+        "progress_zero_on_first_turn": true,
+        "max_stages_completed_per_turn": 3,
+        "situation_turn0": "GENERAL"
+      }
+    },
+    {
+      "id": "end-decline-ko",
+      "lang": "ko",
+      "description": "종료 제안에 더 얘기하고 싶다고 하면 세션이 끝나지 않고 다시 묻지도 않는다",
+      "turns": [
+        "제 사진이 합성돼서 유포됐어요",
+        "인스타그램이에요",
+        "모르겠어요",
+        "그렇군요",
+        "네",
+        "네 괜찮아요",
+        "더 얘기하고 싶어요",
+        "조금만 더요"
+      ],
+      "expect": {
+        "final_session_ended": false,
+        "end_prompt_exactly_once": true,
+        "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "end-accept-ko",
+      "lang": "ko",
+      "description": "종료 제안에 긍정하면 세션이 종료된다",
+      "turns": [
+        "제 사진이 합성돼서 유포됐어요",
+        "인스타그램이에요",
+        "모르겠어요",
+        "그렇군요",
+        "네",
+        "네 괜찮아요",
+        "네 좋아요"
+      ],
+      "expect": {
+        "final_session_ended": true,
+        "max_stages_completed_per_turn": 3
+      }
+    }
+  ]
+}
