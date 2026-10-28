@@ -114,6 +114,10 @@ public class ChatSession {
         this.stageSnapshot = stageSnapshot;
     }
 
+    public void markAgenciesRecommended() {
+        this.agenciesRecommended = true;
+    }
+
     public void markEvidenceUrlMentioned() {
         this.evidenceUrlMentioned = true;
     }
@@ -127,9 +131,5 @@ public class ChatSession {
         if (confirmed) {
             this.sessionEnded = true;
         }
-    }
-
-    public boolean isEmotionallyStabilized() {
-        return !this.everCrisisDetected || !this.lastCrisisDetected;
     }
 }

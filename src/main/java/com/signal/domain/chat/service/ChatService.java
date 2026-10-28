@@ -7,6 +7,9 @@ import com.signal.domain.chat.engine.ChatEngineResponse;
 import com.signal.domain.chat.engine.ChatSpeaker;
 import com.signal.domain.chat.engine.ChatTurn;
 import com.signal.domain.chat.engine.SituationType;
+import com.signal.domain.chat.guidance.AgencyCatalog;
+import com.signal.domain.chat.guidance.GuidancePlanner;
+import com.signal.domain.chat.guidance.GuidanceText;
 import com.signal.domain.chat.entity.ChatMessage;
 import com.signal.domain.chat.entity.ChatRole;
 import com.signal.domain.chat.entity.ChatSession;
@@ -14,7 +17,10 @@ import com.signal.domain.chat.repository.ChatMessageRepository;
 import com.signal.domain.chat.progress.ConsultationProgress;
 import com.signal.domain.chat.progress.ConsultationProgressStatus;
 import com.signal.domain.chat.progress.ConsultationProgressTracker;
+import com.signal.domain.chat.progress.ConsultationStage;
 import com.signal.domain.chat.progress.StageFacts;
+import com.signal.domain.chat.progress.StageRules;
+import com.signal.domain.chat.progress.StageSnapshot;
 import com.signal.domain.chat.repository.ChatSessionRepository;
 import com.signal.domain.report.entity.Report;
 import com.signal.domain.report.entity.ReportStatus;
@@ -22,8 +28,11 @@ import com.signal.domain.report.repository.ReportRepository;
 import com.signal.domain.riskassessment.entity.RiskLevel;
 import com.signal.global.exception.ErrorCode;
 import com.signal.global.exception.SignalException;
+import com.signal.global.i18n.LanguageContext;
+import com.signal.global.i18n.ResponseLanguage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -38,11 +47,6 @@ public class ChatService {
     private static final long ANONYMOUS_CHAT_SESSION_LIMIT = 5;
     private static final int MAX_HISTORY_MESSAGES = 10;   // LLM에 넘길 이전 대화 최대 개수 (토큰 사용량 상한)
     private static final Pattern URL_PATTERN = Pattern.compile("https?://\\S+", Pattern.CASE_INSENSITIVE);
-    private static final List<String> END_CONFIRM_KEYWORDS = List.of(
-            "네", "응", "좋아", "그만할래", "종료할래", "끝낼래", "마무리", "그래");
-    private static final String END_PROMPT =
-            "지금까지 상황을 잘 정리해주셨어요. 상담을 마무리해도 괜찮을까요? 더 이야기하고 싶으시면 편하게 말씀해주세요.";
-    private static final String END_CLOSING_MESSAGE = "상담을 마무리할게요. 언제든 다시 찾아주세요.";
 
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
@@ -106,12 +110,13 @@ public class ChatService {
 
     private ChatEngineResponse resolveEngineResponse(
             ChatSession session, Long userId, String content, List<ChatTurn> history) {
+        ResponseLanguage language = LanguageContext.current();
         if (session.isAwaitingEndConfirmation()) {
-            boolean confirmed = END_CONFIRM_KEYWORDS.stream().anyMatch(content::contains);
+            boolean confirmed = GuidanceText.isEndConfirmation(content);
             session.resolveEndConfirmation(confirmed);
             if (confirmed) {
                 return new ChatEngineResponse(
-                        END_CLOSING_MESSAGE, session.getLastSituationType(), List.of(), false, List.of());
+                        GuidanceText.endClosing(language), session.getLastSituationType(), List.of(), false, List.of());
             }
         }
 
@@ -119,29 +124,57 @@ public class ChatService {
         boolean agenciesGiven = !engineResponse.recommendedAgencies().isEmpty();
         session.recordEngineResult(engineResponse.situationType(), engineResponse.crisisDetected(), agenciesGiven);
 
+        ConsultationProgressStatus statusBefore = ConsultationProgress.from(session.getStageSnapshot()).status();
+
         List<Report> reports = myReports(userId);
         List<ChatTurn> turns = new ArrayList<>(history);
         turns.add(new ChatTurn(ChatSpeaker.USER, content));
         turns.add(new ChatTurn(ChatSpeaker.BOT, engineResponse.reply()));
-        session.updateStageSnapshot(progressTracker.update(
+        int userTurns = (int) turns.stream().filter(turn -> turn.speaker() == ChatSpeaker.USER).count();
+        StageSnapshot snapshot = progressTracker.update(
                 session.getStageSnapshot(), engineResponse.situationType(), turns,
                 new StageFacts(
                         engineResponse.crisisDetected(),
-                        session.isEmotionallyStabilized(),
+                        session.isEverCrisisDetected(),
                         session.isEvidenceUrlMentioned(),
                         !reports.isEmpty(),
                         hasFinalizedReport(reports),
-                        session.isAgenciesRecommended())));
-        boolean progressComplete =
-                ConsultationProgress.from(session.getStageSnapshot()).status() == ConsultationProgressStatus.COMPLETED;
-        if (!session.isSessionEnded() && !session.isAwaitingEndConfirmation() && progressComplete) {
+                        userTurns));
+
+        // 서버가 이번 턴에 붙일 안내 블록을 고른다(한 턴에 하나). 블록을 내보낸 단계만 서버가 완료로 기록한다.
+        Optional<ConsultationStage> delivered = GuidancePlanner.next(
+                snapshot.type(), snapshot.stages(), userTurns, engineResponse.crisisDetected());
+        String reply = engineResponse.reply();
+        List<String> agencies = engineResponse.recommendedAgencies();
+        if (delivered.isPresent()) {
+            ConsultationStage stage = delivered.get();
+            snapshot = StageRules.markDelivered(snapshot, stage);
+            reply = reply + "\n\n" + GuidanceText.guidanceBlock(stage, snapshot.type(), language);
+            if (stage == ConsultationStage.AGENCY_GUIDANCE) {
+                session.markAgenciesRecommended();
+                agencies = snapshot.type() == SituationType.IMAGE_ABUSE
+                        ? AgencyCatalog.imageAbuse(language)
+                        : AgencyCatalog.generalSupport(language);
+            }
+        }
+        session.updateStageSnapshot(snapshot);
+
+        // 종료 제안은 "방금 모든 단계가 끝난" 턴에 한 번만, 안내 블록 뒤에 덧붙인다(위기 메시지에는 하지 않는다).
+        // 사용자가 계속하겠다고 답한 뒤에는 이미 완료 상태라 다시 묻지 않는다.
+        boolean justCompleted = statusBefore != ConsultationProgressStatus.COMPLETED
+                && ConsultationProgress.from(snapshot).status() == ConsultationProgressStatus.COMPLETED;
+        if (justCompleted && !engineResponse.crisisDetected()
+                && !session.isSessionEnded() && !session.isAwaitingEndConfirmation()) {
             session.markAwaitingEndConfirmation();
-            return new ChatEngineResponse(
-                    END_PROMPT, engineResponse.situationType(), engineResponse.suggestedActions(),
-                    engineResponse.crisisDetected(), engineResponse.recommendedAgencies());
+            reply = reply + "\n\n" + GuidanceText.endPrompt(language);
         }
 
-        return engineResponse;
+        if (reply.equals(engineResponse.reply()) && agencies == engineResponse.recommendedAgencies()) {
+            return engineResponse;
+        }
+        return new ChatEngineResponse(
+                reply, engineResponse.situationType(), engineResponse.suggestedActions(),
+                engineResponse.crisisDetected(), agencies);
     }
 
     public List<ChatMessage> getMessages(String sessionId, Long userId, String anonymousId) {
