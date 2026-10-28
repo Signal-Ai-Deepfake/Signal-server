@@ -206,9 +206,12 @@ public class ChatService {
 
         ConsultationProgress progress = ConsultationProgress.from(session.getStageSnapshot());
 
+        List<ConsultationStage> remaining = remainingStages(session, reportFinalized);
+        ResponseLanguage language = LanguageContext.current();
         return new ChatSummaryResponse(
                 describeSituation(session),
-                recommendedSteps(session, reportFinalized),
+                remaining.stream().map(stage -> GuidanceText.stepLabel(stage, language)).toList(),
+                remaining,
                 riskLevel(session),
                 riskDescription(session),
                 progress.progressPercent(),
@@ -230,13 +233,14 @@ public class ChatService {
 
     /**
      * 아직 남은 안내 단계. 단계 상태(서버가 결정한 완료 여부)를 기준으로 하며, 상담 전이면 이미지 피해 기준의 전체 목록이다.
+     * 상담 전에는 상황 유형을 알 수 없어 일부러 전체 단계를 보여 주고, 첫 메시지로 유형이 정해지면 유형에 맞게 줄어든다
+     * (일반 상담이면 증거 보존·플랫폼 신고가 사라진다).
      * 마지막 메시지 이후에 신고 문서를 확정했을 수 있어서 신고 단계는 문서 상태도 함께 본다.
      */
-    private List<String> recommendedSteps(ChatSession session, boolean reportFinalized) {
+    private List<ConsultationStage> remainingStages(ChatSession session, boolean reportFinalized) {
         StageSnapshot snapshot = session.getStageSnapshot();
         SituationType type = snapshot == null ? SituationType.IMAGE_ABUSE : snapshot.type();
-        ResponseLanguage language = LanguageContext.current();
-        List<String> steps = new ArrayList<>();
+        List<ConsultationStage> remaining = new ArrayList<>();
         for (ConsultationStage stage : List.of(
                 ConsultationStage.EVIDENCE_PRESERVATION,
                 ConsultationStage.PLATFORM_REPORT,
@@ -251,10 +255,10 @@ public class ChatService {
                     || (stage == ConsultationStage.PLATFORM_REPORT && reportFinalized)
                     || (stage == ConsultationStage.EVIDENCE_PRESERVATION && session.isEvidenceUrlMentioned());
             if (!done) {
-                steps.add(GuidanceText.stepLabel(stage, language));
+                remaining.add(stage);
             }
         }
-        return steps;
+        return remaining;
     }
 
     private RiskLevel riskLevel(ChatSession session) {

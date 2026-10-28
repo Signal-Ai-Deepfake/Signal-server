@@ -187,6 +187,7 @@ class ChatServiceTest {
         assertThat(summary.progress().status()).isEqualTo(ConsultationProgressStatus.NOT_STARTED);
         assertThat(summary.progress().currentStage()).isNull();
         assertThat(summary.recommendedSteps()).containsExactly("증거 보존", "플랫폼 신고", "전문 기관 상담");
+        assertThat(summary.recommendedStepCodes()).hasSize(3);
     }
 
     @Test
@@ -202,6 +203,11 @@ class ChatServiceTest {
             assertThat(summary.riskDescription()).isEqualTo("No particular warning signs.");
             assertThat(summary.recommendedSteps()).containsExactly(
                     "Preserve evidence", "Report to the platform", "Contact a support organization");
+            // 표시 문구는 언어마다 달라도 코드는 같다.
+            assertThat(summary.recommendedStepCodes()).containsExactly(
+                    ConsultationStage.EVIDENCE_PRESERVATION,
+                    ConsultationStage.PLATFORM_REPORT,
+                    ConsultationStage.AGENCY_GUIDANCE);
         } finally {
             LanguageContext.clear();
         }
@@ -218,8 +224,9 @@ class ChatServiceTest {
         when(chatSessionRepository.findBySessionId("session-1")).thenReturn(Optional.of(session));
         when(reportRepository.findByUserIdOrderByCreatedAtDesc(1L)).thenReturn(List.of());
 
-        assertThat(chatService.getSummary("session-1", 1L, null).recommendedSteps())
-                .containsExactly("전문 기관 상담");
+        ChatSummaryResponse summary = chatService.getSummary("session-1", 1L, null);
+        assertThat(summary.recommendedSteps()).containsExactly("전문 기관 상담");
+        assertThat(summary.recommendedStepCodes()).containsExactly(ConsultationStage.AGENCY_GUIDANCE);
     }
 
     @Test
