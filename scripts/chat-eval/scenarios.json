@@ -204,7 +204,7 @@
     {
       "id": "abuse-flow-ko",
       "lang": "ko",
-      "description": "이미지 피해 6턴: 첫 턴 진행률 0, 2턴 증거, 3턴 기관, 4턴 신고, 5턴 정서 확인, 6턴 완료 후 종료 제안 1회",
+      "description": "이미지 피해 6턴: 1턴 증거, 2턴 기관, 3턴 신고, 4턴 정서 확인, 5턴 완료와 함께 종료 제안 1회, 6턴 종료 동의로 세션 종료",
       "turns": [
         "제 사진이 합성돼서 유포됐어요",
         "인스타그램에 올라왔어요",
@@ -214,24 +214,24 @@
         "네 괜찮아요"
       ],
       "expect": {
-        "progress_zero_on_first_turn": true,
         "stage_completed_by_turn": {
-          "EVIDENCE_PRESERVATION": 1,
-          "AGENCY_GUIDANCE": 2,
-          "PLATFORM_REPORT": 3,
-          "EMOTIONAL_SUPPORT": 5
+          "EVIDENCE_PRESERVATION": 0,
+          "AGENCY_GUIDANCE": 1,
+          "PLATFORM_REPORT": 2,
+          "EMOTIONAL_SUPPORT": 4
         },
         "final_status": "COMPLETED",
         "end_prompt_exactly_once": true,
         "monotonic_progress": true,
         "max_stages_completed_per_turn": 3,
-        "situation_turn0": "IMAGE_ABUSE"
+        "situation_turn0": "IMAGE_ABUSE",
+        "final_session_ended": true
       }
     },
     {
       "id": "abuse-flow-en",
       "lang": "en",
-      "description": "이미지 피해 6턴: 첫 턴 진행률 0, 2턴 증거, 3턴 기관, 4턴 신고, 5턴 정서 확인, 6턴 완료 후 종료 제안 1회",
+      "description": "이미지 피해 6턴: 1턴 증거, 2턴 기관, 3턴 신고, 4턴 정서 확인, 5턴 완료와 함께 종료 제안 1회, 6턴 종료 동의로 세션 종료",
       "turns": [
         "Someone made a deepfake of my photo and posted it",
         "It is on Instagram",
@@ -241,24 +241,24 @@
         "Yes I am okay"
       ],
       "expect": {
-        "progress_zero_on_first_turn": true,
         "stage_completed_by_turn": {
-          "EVIDENCE_PRESERVATION": 1,
-          "AGENCY_GUIDANCE": 2,
-          "PLATFORM_REPORT": 3,
-          "EMOTIONAL_SUPPORT": 5
+          "EVIDENCE_PRESERVATION": 0,
+          "AGENCY_GUIDANCE": 1,
+          "PLATFORM_REPORT": 2,
+          "EMOTIONAL_SUPPORT": 4
         },
         "final_status": "COMPLETED",
         "end_prompt_exactly_once": true,
         "monotonic_progress": true,
         "max_stages_completed_per_turn": 3,
-        "situation_turn0": "IMAGE_ABUSE"
+        "situation_turn0": "IMAGE_ABUSE",
+        "final_session_ended": true
       }
     },
     {
       "id": "abuse-flow-ja",
       "lang": "ja",
-      "description": "이미지 피해 6턴: 첫 턴 진행률 0, 2턴 증거, 3턴 기관, 4턴 신고, 5턴 정서 확인, 6턴 완료 후 종료 제안 1회",
+      "description": "이미지 피해 6턴: 1턴 증거, 2턴 기관, 3턴 신고, 4턴 정서 확인, 5턴 완료와 함께 종료 제안 1회, 6턴 종료 동의로 세션 종료",
       "turns": [
         "私の写真が合成されて流出しました",
         "インスタグラムに載っています",
@@ -268,24 +268,24 @@
         "はい、大丈夫です"
       ],
       "expect": {
-        "progress_zero_on_first_turn": true,
         "stage_completed_by_turn": {
-          "EVIDENCE_PRESERVATION": 1,
-          "AGENCY_GUIDANCE": 2,
-          "PLATFORM_REPORT": 3,
-          "EMOTIONAL_SUPPORT": 5
+          "EVIDENCE_PRESERVATION": 0,
+          "AGENCY_GUIDANCE": 1,
+          "PLATFORM_REPORT": 2,
+          "EMOTIONAL_SUPPORT": 4
         },
         "final_status": "COMPLETED",
         "end_prompt_exactly_once": true,
         "monotonic_progress": true,
         "max_stages_completed_per_turn": 3,
-        "situation_turn0": "IMAGE_ABUSE"
+        "situation_turn0": "IMAGE_ABUSE",
+        "final_session_ended": true
       }
     },
     {
       "id": "abuse-flow-zh-CN",
       "lang": "zh-CN",
-      "description": "이미지 피해 6턴: 첫 턴 진행률 0, 2턴 증거, 3턴 기관, 4턴 신고, 5턴 정서 확인, 6턴 완료 후 종료 제안 1회",
+      "description": "이미지 피해 6턴: 1턴 증거, 2턴 기관, 3턴 신고, 4턴 정서 확인, 5턴 완료와 함께 종료 제안 1회, 6턴 종료 동의로 세션 종료",
       "turns": [
         "我的照片被合成并传播了",
         "在Instagram上",
@@ -295,18 +295,18 @@
         "好的,我没事"
       ],
       "expect": {
-        "progress_zero_on_first_turn": true,
         "stage_completed_by_turn": {
-          "EVIDENCE_PRESERVATION": 1,
-          "AGENCY_GUIDANCE": 2,
-          "PLATFORM_REPORT": 3,
-          "EMOTIONAL_SUPPORT": 5
+          "EVIDENCE_PRESERVATION": 0,
+          "AGENCY_GUIDANCE": 1,
+          "PLATFORM_REPORT": 2,
+          "EMOTIONAL_SUPPORT": 4
         },
         "final_status": "COMPLETED",
         "end_prompt_exactly_once": true,
         "monotonic_progress": true,
         "max_stages_completed_per_turn": 3,
-        "situation_turn0": "IMAGE_ABUSE"
+        "situation_turn0": "IMAGE_ABUSE",
+        "final_session_ended": true
       }
     },
     {
@@ -470,7 +470,6 @@
         "모르겠어요",
         "그렇군요",
         "네",
-        "네 괜찮아요",
         "더 얘기하고 싶어요",
         "조금만 더요"
       ],
@@ -490,12 +489,71 @@
         "모르겠어요",
         "그렇군요",
         "네",
-        "네 괜찮아요",
         "네 좋아요"
       ],
       "expect": {
         "final_session_ended": true,
         "max_stages_completed_per_turn": 3
+      }
+    },
+    {
+      "id": "end-negation-zh",
+      "lang": "zh-CN",
+      "description": "종료 제안에 '不想结束'처럼 부정이 섞이면 종료하지 않는다",
+      "turns": [
+        "我的照片被合成并传播了",
+        "在Instagram上",
+        "我不知道该怎么办",
+        "这样啊",
+        "好的",
+        "我不想结束"
+      ],
+      "expect": {
+        "final_session_ended": false,
+        "end_prompt_exactly_once": true
+      }
+    },
+    {
+      "id": "end-negation-ja",
+      "lang": "ja",
+      "description": "종료 제안에 '終わりたくない'라고 하면 종료하지 않는다",
+      "turns": [
+        "私の写真が合成されて流出しました",
+        "インスタグラムに載っています",
+        "どうすればいいかわかりません",
+        "そうですか",
+        "はい",
+        "終わりたくない"
+      ],
+      "expect": {
+        "final_session_ended": false,
+        "end_prompt_exactly_once": true
+      }
+    },
+    {
+      "id": "benign-abuse-word-ko",
+      "lang": "ko",
+      "description": "이미지 단어 없이 '합성'이 나오는 일상 대화는 이미지 피해로 분류하지 않는다",
+      "turns": [
+        "회사에서 합성 소재 이야기가 나왔어요"
+      ],
+      "expect": {
+        "crisis_turns": [],
+        "situation_turn0": "GENERAL",
+        "progress_zero_on_first_turn": true
+      }
+    },
+    {
+      "id": "benign-abuse-word-ja",
+      "lang": "ja",
+      "description": "이미지 단어 없이 '流出'가 나오는 뉴스 이야기는 이미지 피해로 분류하지 않는다",
+      "turns": [
+        "データが流出したニュースを見ました"
+      ],
+      "expect": {
+        "crisis_turns": [],
+        "situation_turn0": "GENERAL",
+        "progress_zero_on_first_turn": true
       }
     }
   ]
