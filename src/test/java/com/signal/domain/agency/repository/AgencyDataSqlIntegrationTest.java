@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.signal.domain.agency.entity.Agency;
 import com.signal.domain.agency.entity.AgencySituationType;
+import com.signal.domain.agency.i18n.AgencyTexts;
+import com.signal.global.i18n.ResponseLanguage;
 import com.signal.domain.chat.guidance.AgencyCatalog;
 import java.util.List;
 import java.util.Set;
@@ -136,5 +138,22 @@ class AgencyDataSqlIntegrationTest {
     private void runMigration() {
         new ResourceDatabasePopulator(new ClassPathResource("db/migration/V3__fix_agency_seed_numbers.sql"))
                 .execute(dataSource);
+    }
+
+    @Test
+    void 시드된_기관의_안내_문구는_모든_지원_언어로_번역돼_있다() {
+        // 시드에 새 기관·문구를 추가하고 AgencyTexts에 번역을 빼먹으면 해당 언어에서 한국어가 그대로 나간다.
+        for (ResponseLanguage language : List.of(ResponseLanguage.EN, ResponseLanguage.JA, ResponseLanguage.ZH_CN)) {
+            for (Agency agency : agencyRepository.findAll()) {
+                assertThat(AgencyTexts.name(agency.getName(), language))
+                        .as("%s 기관명(%s)", agency.getName(), language).isNotEqualTo(agency.getName());
+                assertThat(AgencyTexts.availableHours(agency.getAvailableHours(), language))
+                        .as("%s 운영시간(%s)", agency.getName(), language).isNotEqualTo(agency.getAvailableHours());
+                for (String action : agency.getSupportedActions()) {
+                    assertThat(AgencyTexts.supportedActions(List.of(action), language))
+                            .as("%s 지원 내용 %s(%s)", agency.getName(), action, language).doesNotContain(action);
+                }
+            }
+        }
     }
 }
