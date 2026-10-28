@@ -19,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  IMAGE: ghcr.io/signal-ai-deepfake/signal-server
+  IMAGE: ghcr.io/somaus/signal-server
 
 jobs:
   test:

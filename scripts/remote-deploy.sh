@@ -4,7 +4,7 @@
 # 직접 실행해도 된다: APP_IMAGE=... GHCR_USER=... GHCR_TOKEN=... bash scripts/remote-deploy.sh
 #
 # 필수 환경변수
-#   APP_IMAGE   배포할 이미지 (예: ghcr.io/signal-ai-deepfake/signal-server:<sha>)
+#   APP_IMAGE   배포할 이미지 (예: ghcr.io/somaus/signal-server:<sha>)
 #   GHCR_USER   GHCR 로그인 사용자
 #   GHCR_TOKEN  GHCR 토큰 (Actions의 GITHUB_TOKEN — 워크플로 실행 중에만 유효)
 # 선택 환경변수

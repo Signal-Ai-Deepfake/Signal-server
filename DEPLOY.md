@@ -4,7 +4,7 @@
 
 `main`에 push되면 [.github/workflows/deploy.yml](.github/workflows/deploy.yml)이 자동으로 배포한다.
 
-1. GitHub 러너가 이미지를 빌드해 `ghcr.io/signal-ai-deepfake/signal-server:<sha>`로 push
+1. GitHub 러너가 이미지를 빌드해 `ghcr.io/somaus/signal-server:<sha>`로 push
 2. 서버에 SSH 접속 → 해당 커밋으로 `git reset --hard` → 이미지 pull → 컨테이너 교체
 3. 헬스체크 실패 시 **이전 이미지로 자동 롤백**
 
