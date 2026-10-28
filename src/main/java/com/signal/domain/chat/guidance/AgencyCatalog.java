@@ -18,29 +18,41 @@ public final class AgencyCatalog {
     /** 2024-01부터 1393 등이 109로 통합됐다(보건복지부 공지). */
     private static final Agency SUICIDE_PREVENTION = new Agency("suicide-prevention",
             "자살예방 상담전화", "Suicide Prevention Hotline (Korea)",
-            "自殺予防相談電話(韓国)", "自杀预防咨询热线(韩国)", "109");
+            "自殺予防相談電話(韓国)", "自杀预防咨询热线(韩国)", "109", List.of("109"));
 
     private static final Agency YOUTH_LINE = new Agency("youth-1388",
             "청소년전화", "Youth Helpline (Korea)",
-            "青少年電話(韓国)", "青少年热线(韩国)", "1388");
+            "青少年電話(韓国)", "青少年热线(韩国)", "1388", List.of("1388"));
 
     private static final Agency EMERGENCY = new Agency("emergency",
             "긴급 상황(경찰·소방)", "Emergency (police / fire)",
-            "緊急(警察・消防)", "紧急情况(警察/消防)", "112 / 119");
+            "緊急(警察・消防)", "紧急情况(警察/消防)", "112 / 119", List.of("112", "119"));
 
     private static final Agency DIGITAL_SEX_CRIME_CENTER = new Agency("d4u",
             "중앙디지털성범죄피해자지원센터", "Digital Sexual Crime Victim Support Center (Korea)",
-            "中央デジタル性犯罪被害者支援センター(韓国)", "中央数字性犯罪受害者支援中心(韩国)", "02-735-8994 / d4u.stop.or.kr");
+            "中央デジタル性犯罪被害者支援センター(韓国)", "中央数字性犯罪受害者支援中心(韩国)", "02-735-8994 / d4u.stop.or.kr", List.of("02-735-8994"));
 
     private static final Agency KCSC = new Agency("kcsc",
             "방송통신심의위원회 불법촬영물 심의", "Korea Communications Standards Commission",
-            "放送通信審議委員会(韓国)", "韩国放送通信审议委员会", "1377");
+            "放送通信審議委員会(韓国)", "韩国放送通信审议委员会", "1377", List.of("1377"));
 
     private static final Agency POLICE = new Agency("police",
             "경찰 신고", "Police report",
-            "警察への通報", "向警方报案", "112 / ecrm.police.go.kr");
+            "警察への通報", "向警方报案", "ecrm.police.go.kr / 112", List.of("112"));
 
     private AgencyCatalog() {
+    }
+
+    /** 카탈로그에 있는 모든 기관. */
+    public static List<Agency> all() {
+        return List.of(SUICIDE_PREVENTION, YOUTH_LINE, EMERGENCY, DIGITAL_SEX_CRIME_CENTER, KCSC, POLICE);
+    }
+
+    /** 카탈로그 기관의 전화번호 원문(예: "02-735-8994"). 기관 조회 API 시드의 phone 값과 통째로 비교할 때 쓴다. */
+    public static java.util.Set<String> phoneNumbers() {
+        java.util.Set<String> numbers = new java.util.TreeSet<>();
+        all().forEach(agency -> numbers.addAll(agency.phones()));
+        return numbers;
     }
 
     /** 위기 상황에서 안내하는 곳. */
