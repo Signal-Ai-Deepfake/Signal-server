@@ -7,7 +7,7 @@
 -- (AgencyDataSqlIntegrationTest가 두 곳의 번호가 어긋나면 실패하도록 검증한다.)
 
 INSERT IGNORE INTO agencies (id, name, phone, website, available_hours) VALUES
-    (1, '디지털성범죄피해자지원센터', '02-735-8994', 'https://d4u.stop.or.kr', '평일 09:00~18:00 (야간·휴일 자동응답)'),
+    (1, '디지털성범죄피해자지원센터', '02-735-8994', 'https://d4u.stop.or.kr', '평일 08:00~22:00, 주말·공휴일 09:00~18:00'),
     (2, '경찰 사이버범죄 신고', '112', 'https://ecrm.police.go.kr', '온라인 신고 24시간 (112는 긴급 신고)'),
     (3, '자살예방 상담전화', '109', 'https://www.spckorea.or.kr', '24시간'),
     (4, '정신건강 위기상담전화', '1577-0199', 'https://www.mentalhealth.go.kr', '24시간');

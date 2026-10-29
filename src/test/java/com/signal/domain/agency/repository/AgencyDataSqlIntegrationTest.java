@@ -152,8 +152,25 @@ class AgencyDataSqlIntegrationTest {
         }
     }
 
+    @Test
+    void V4_마이그레이션은_옛_운영시간만_정정하고_직접_고친_값은_덮어쓰지_않는다() {
+        jdbcTemplate.update("UPDATE agencies SET available_hours = '평일 09:00~18:00 (야간·휴일 자동응답)' WHERE id = 1");
+        jdbcTemplate.update("UPDATE agencies SET available_hours = '직접 수정한 시간' WHERE id = 4");
+
+        runMigration("V4__fix_digital_sex_crime_center_hours.sql");
+        runMigration("V4__fix_digital_sex_crime_center_hours.sql");
+
+        assertThat(jdbcTemplate.queryForObject("SELECT available_hours FROM agencies WHERE id = 1", String.class))
+                .isEqualTo("평일 08:00~22:00, 주말·공휴일 09:00~18:00");
+        assertThat(jdbcTemplate.queryForObject("SELECT available_hours FROM agencies WHERE id = 4", String.class))
+                .isEqualTo("직접 수정한 시간");
+    }
+
     private void runMigration() {
-        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V3__fix_agency_seed_numbers.sql"))
-                .execute(dataSource);
+        runMigration("V3__fix_agency_seed_numbers.sql");
+    }
+
+    private void runMigration(String file) {
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/" + file)).execute(dataSource);
     }
 }
