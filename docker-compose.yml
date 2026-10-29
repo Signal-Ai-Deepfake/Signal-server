@@ -50,6 +50,10 @@ services:
     profiles: ["detect"]
     build: ./detect-lab
     restart: unless-stopped
+    # 포트를 게시하지 않는다(인증이 없으므로 compose 내부망의 app에서만 호출). 열어야 한다면 앞단에서 접근을 제한할 것.
+    environment:
+      DETECT_MODEL_REVISION: ${DETECT_MODEL_REVISION:-}   # 모델 저장소 커밋 해시(필수, 평가에서 고른 값). 비어 있으면 받지 않고 멈춘다
+      DETECT_MODEL_SHA256: ${DETECT_MODEL_SHA256:-}       # 선택: onnx/model.onnx 해시 검증
     volumes:
       - detect-model-cache:/models
     healthcheck:
