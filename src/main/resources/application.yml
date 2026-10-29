@@ -68,7 +68,16 @@ protection:
     timeout-seconds: ${PROTECTION_API_TIMEOUT_SECONDS:300}   # 노이즈 계산은 CPU에서 수 분까지 걸릴 수 있음
 
 monitoring:
-  processing-delay-ms: 3000   # 얼굴 모니터링 초기 탐지 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
+  mode: ${MONITORING_MODE:stub}   # stub: 시연용 예시 결과(StubFaceMonitor, 기본) / search: 웹 역이미지 검색을 하루 1회 수행(SearchFaceMonitor)
+  processing-delay-ms: 3000   # stub 모드의 탐지 시뮬레이션 지연
+  search:   # mode=search
+    interval-hours: ${MONITORING_SEARCH_INTERVAL_HOURS:24}   # 모니터링 하나를 다시 검색하는 간격
+    daily-limit: ${MONITORING_SEARCH_DAILY_LIMIT:30}         # 하루 전체 검색 상한. Vision 무료 쿼터(월 1,000건)를 넘지 않도록 30건 안팎
+    max-failures: ${MONITORING_SEARCH_MAX_FAILURES:5}        # 연속 실패가 이 횟수에 이르면 PAUSED
+    timeout-seconds: ${MONITORING_SEARCH_TIMEOUT_SECONDS:30}
+    cron: ${MONITORING_SEARCH_CRON:0 0 * * * *}              # 검색 시각이 지난 모니터링을 찾는 주기(매시 정각)
+    google-vision:
+      api-key: ${GOOGLE_VISION_API_KEY:}                     # mode=search일 때 필수
 
 deepfake-detection:
   mode: ${DEEPFAKE_DETECTION_MODE:llm}   # llm: 비전 LLM(LlmDeepfakeDetector, 기본) / http: detect-lab 서비스의 전용 탐지 모델 호출(HttpDeepfakeDetector)
