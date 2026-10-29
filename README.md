@@ -109,9 +109,12 @@ AI 도구가 생성한 결과물은 팀원이 직접 검토하고 수정한 뒤 
 | 위험도 분석 (`POST /api/v1/risk-assessments`) | AI가 쓰는 `factors[].description`과 정형 문구 `recommendations`가 요청 언어로 생성된다. |
 | 위험 요인 이름 `factors[].label` | `type`과 요청 언어로 정해진다. 이전에 저장된 진단도 요청 언어로 내려간다. |
 | 딥페이크 탐지 (`POST /api/v1/deepfake-detections`) | 근거 설명(`evidences[].description`)이 요청 언어로 생성된다. 요청 시점의 언어가 비동기 작업에도 전달된다. |
+| 기관 조회 (`GET /api/v1/agencies`) | 기관명·운영시간·지원 내용(`supportedActions`)이 요청 언어로 나간다. 기관명은 한국어 정식 명칭 뒤에 번역을 괄호로 덧붙인다(예: `자살예방 상담전화 (Suicide Prevention Hotline)`). 전화번호·웹사이트는 언어와 무관하다. 번역은 `AgencyTexts`의 표에서 한국어 원문으로 찾으며, 표에 없는 값(직접 고치거나 새로 넣은 기관)은 DB 값 그대로 나간다. |
 | 익명 상담 챗봇 | 일반 대화의 AI 답변이 요청 언어로 생성되고, 서버가 붙이는 위기 응답·단계별 안내·종료 제안·기관 목록도 요청 언어(ko/en/ja/zh-CN)로 나간다. |
 
-한국어가 유지되는 항목: 신고 문서 초안, `/api/v1/chat/sessions/{id}/summary`의 문장, DB `agencies` 테이블의 기관 정보, 서버 에러의 `message`. (챗봇의 위기 응답·단계별 안내·종료 제안·기관 목록은 요청 언어로 나간다.) 이미 저장된 분석·상담 기록의 문장은 저장 당시 언어로 내려간다.
+한국어가 유지되는 항목: 신고 문서 초안, `/api/v1/chat/sessions/{id}/summary`의 문장, 서버 에러의 `message`. (챗봇의 위기 응답·단계별 안내·종료 제안·기관 목록은 요청 언어로 나간다.) 이미 저장된 분석·상담 기록의 문장은 저장 당시 언어로 내려간다.
+
+응답은 요청 언어에 따라 달라지므로 서버가 `Vary: Accept-Language` 헤더를 붙인다. 프록시·CDN 앞단에서 캐시할 때 언어별로 따로 저장되게 하기 위해서다.
 
 ### 위험 요인 `type` 고정 값
 
