@@ -1,4 +1,7 @@
 import io
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from fastapi.testclient import TestClient
@@ -74,3 +77,39 @@ def test_모델을_못_불러오면_health와_detect가_503(tmp_path):
         assert health.status_code == 503
         assert "모델 파일이 없습니다" in health.json()["error"]
         assert c.post("/detect", files={"file": ("a.png", png(), "image/png")}).status_code == 503
+
+
+def test_디코딩도_동시_처리_수에_묶인다(tiny_onnx, monkeypatch):
+    """가장 메모리를 쓰는 디코딩이 세마포어 밖이면 큰 사진 여러 장이 동시에 메모리에 올라간다."""
+    import app as app_module
+
+    lock = threading.Lock()
+    state = {"now": 0, "peak": 0}
+    real = app_module.load_image
+
+    def slow_load(data, max_pixels):
+        with lock:
+            state["now"] += 1
+            state["peak"] = max(state["peak"], state["now"])
+        time.sleep(0.05)
+        try:
+            return real(data, max_pixels=max_pixels)
+        finally:
+            with lock:
+                state["now"] -= 1
+
+    monkeypatch.setattr(app_module, "load_image", slow_load)
+    with TestClient(create_app(lambda: OnnxModel(tiny_onnx, "tiny"), max_concurrency=1)) as c:
+        def call(_):
+            return c.post("/detect", files={"file": ("a.png", png(), "image/png")}).status_code
+
+        with ThreadPoolExecutor(max_workers=6) as pool:
+            codes = list(pool.map(call, range(6)))
+    assert codes == [200] * 6
+    assert state["peak"] == 1
+
+
+def test_기본_업로드_한도는_서버의_이미지_한도_100MB와_같다():
+    import app as app_module
+
+    assert app_module.MAX_UPLOAD_MB == 100
