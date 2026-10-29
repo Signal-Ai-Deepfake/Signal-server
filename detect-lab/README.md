@@ -6,7 +6,7 @@
 
 ## 모델
 
-기본은 CommunityForensics ViT-S(`buildborderless/CommunityForensics-DeepfakeDet-ViT`)의 FP32 ONNX다(MIT, 약 83MB, CPU 추론).
+기본은 CommunityForensics ViT-S(`buildborderless/CommunityForensics-DeepfakeDet-ViT`)의 FP32 ONNX다(MIT, 약 87MB, CPU 추론).
 출력은 로짓 1개이고 sigmoid를 거친 값이 "가짜일 확률"(`score`)이다. 이 값은 **보정되지 않은 모델 출력**이다.
 
 - 전처리: RGB → 짧은 변 440(bicubic) → 가운데 384x384 자르기 → CLIP 정규화. `transformers`의 `CLIPImageProcessor`와 같은 결과를 낸다.

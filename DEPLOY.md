@@ -34,7 +34,7 @@ CD의 기본은 `llm`이다(기존 비전 LLM 탐지, detect는 띄우지 않는
 켜는 방법: 저장소 변수 `DEEPFAKE_DETECTION_MODE`를 `http`로 만들고(Settings > Secrets and variables > Actions > Variables) Actions > CD > Run workflow로 다시 실행한다. 켠 뒤 배포는 아래와 같이 움직인다.
 
 1. 러너가 `detect-lab`도 빌드해 `ghcr.io/somaus/signal-detect:<sha>`로 push한다. 서버는 pull만 한다.
-2. 서버에서 `docker compose --profile detect up -d detect`로 띄우고 healthy가 될 때까지 최대 5분 기다린다. 첫 배포는 모델(약 83MB)을 받는다. 가중치는 볼륨(`detect-model-cache`)에 남아 다음부터는 받지 않는다.
+2. 서버에서 `docker compose --profile detect up -d detect`로 띄우고 healthy가 될 때까지 최대 5분 기다린다. 첫 배포는 모델(약 87MB)을 받는다. 가중치는 볼륨(`detect-model-cache`)에 남아 다음부터는 받지 않는다.
 3. **준비되지 않으면 앱은 `llm` 방식으로 배포한다.** `http` 방식에서 detect가 죽어 있으면 탐지 요청이 모두 실패하므로, 사이트가 멈추지 않게 하려는 안전장치다. 이때 실패한 detect 컨테이너는 내리고(크래시 루프로 서버 자원을 쓰지 않게), CD 실행 요약에 경고(`::warning::`)가 남는다. 워크플로는 초록색이어도 요약의 경고를 확인한다.
 4. detect 컨테이너는 `restart: unless-stopped`라 서버가 재부팅되어도 다시 올라온다. 매번 직접 띄울 필요가 없다.
 

@@ -33,7 +33,7 @@ fall_back_to_llm() {
     export DEEPFAKE_DETECTION_MODE=llm
 }
 
-# detect 컨테이너가 healthy가 될 때까지 기다린다. 첫 배포는 모델(약 83MB)을 받느라 몇 분 걸릴 수 있다.
+# detect 컨테이너가 healthy가 될 때까지 기다린다. 첫 배포는 모델(약 87MB)을 받느라 몇 분 걸릴 수 있다.
 detect_healthy() {
     local cid status
     for _ in $(seq 1 "$1"); do
