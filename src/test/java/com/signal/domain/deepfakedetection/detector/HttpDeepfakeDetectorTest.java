@@ -108,14 +108,15 @@ class HttpDeepfakeDetectorTest {
     @ParameterizedTest
     @CsvSource({
             "0.0, 0, REAL, 1.0",
-            "0.29, 29, REAL, 0.71",
-            "0.30, 30, SUSPICIOUS, 0.7",
+            "0.09, 9, REAL, 0.91",
+            "0.10, 10, SUSPICIOUS, 0.9",
+            "0.29, 29, SUSPICIOUS, 0.71",
             "0.50, 50, SUSPICIOUS, 0.5",
             "0.70, 70, SUSPICIOUS, 0.7",
             "0.71, 71, FAKE, 0.71",
             "1.0, 100, FAKE, 1.0"
     })
-    void 점수는_riskScore와_기존_구간의_verdict로_바뀐다(String score, int riskScore, Verdict verdict, double confidence) {
+    void 점수는_riskScore와_등급에_따른_verdict로_바뀐다(String score, int riskScore, Verdict verdict, double confidence) {
         DeepfakeDetection detection = stubDetection();
         stubFileLoadAndStore();
         server.expect(requestTo(DETECT_URL)).andRespond(withSuccess(scoreBody(score), MediaType.APPLICATION_JSON));
@@ -207,12 +208,12 @@ class HttpDeepfakeDetectorTest {
         RestClient.Builder builder = RestClient.builder().baseUrl("http://detect:8000");
         server = MockRestServiceServer.bindTo(builder).build();
         return new HttpDeepfakeDetector(fileStorage, deepfakeDetectionRepository, builder.build(),
-                new DetectionBandPolicy(30, 70, 256), explainer);
+                new DetectionBandPolicy(10, 70, 256), explainer);
     }
 
     @ParameterizedTest
     @CsvSource({
-            "0.10, LOW", "0.29, LOW", "0.30, UNCERTAIN", "0.50, UNCERTAIN", "0.70, UNCERTAIN", "0.71, HIGH", "0.99, HIGH"
+            "0.05, LOW", "0.09, LOW", "0.10, UNCERTAIN", "0.29, UNCERTAIN", "0.30, UNCERTAIN", "0.50, UNCERTAIN", "0.70, UNCERTAIN", "0.71, HIGH", "0.99, HIGH"
     })
     void 점수는_등급으로_바뀐다(String score, String band) {
         DeepfakeDetection detection = stubDetection();
@@ -249,7 +250,7 @@ class HttpDeepfakeDetectorTest {
         DeepfakeDetection detection = stubDetection();
         stubFileLoadAndStore();
         server.expect(requestTo(DETECT_URL))
-                .andRespond(withSuccess("{\"score\":0.10,\"model\":\"cf\"}", MediaType.APPLICATION_JSON));
+                .andRespond(withSuccess("{\"score\":0.05,\"model\":\"cf\"}", MediaType.APPLICATION_JSON));
 
         detector.detect(1L, FILE_URL, false);
 

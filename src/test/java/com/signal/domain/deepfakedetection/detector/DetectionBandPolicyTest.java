@@ -11,13 +11,14 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 class DetectionBandPolicyTest {
 
-    private final DetectionBandPolicy policy = new DetectionBandPolicy(30, 70, 256);
+    private final DetectionBandPolicy policy = new DetectionBandPolicy(10, 70, 256);
 
     @ParameterizedTest
-    @CsvSource({"0, LOW", "29, LOW", "30, UNCERTAIN", "50, UNCERTAIN", "70, UNCERTAIN", "71, HIGH", "100, HIGH"})
+    @CsvSource({"0, LOW", "9, LOW", "10, UNCERTAIN", "29, UNCERTAIN", "50, UNCERTAIN", "70, UNCERTAIN", "71, HIGH", "100, HIGH"})
     void 점수는_구간으로_나뉜다(int riskScore, DetectionBand band) {
         DetectionBandPolicy.Assessment assessment = policy.assess(riskScore, 1024, 768, List.of());
 
@@ -38,7 +39,7 @@ class DetectionBandPolicyTest {
 
     @Test
     void 크기를_모르면_해상도로_판단_불가를_내지_않는다() {
-        assertThat(policy.assess(10, 0, 0, List.of()).band()).isEqualTo(DetectionBand.LOW);
+        assertThat(policy.assess(5, 0, 0, List.of()).band()).isEqualTo(DetectionBand.LOW);
     }
 
     @Test
@@ -52,7 +53,7 @@ class DetectionBandPolicyTest {
 
     @Test
     void C2PA_매니페스트만_있으면_등급에_영향이_없다() {
-        assertThat(policy.assess(10, 1024, 768, List.of(ProvenanceSignal.C2PA_MANIFEST)).band())
+        assertThat(policy.assess(5, 1024, 768, List.of(ProvenanceSignal.C2PA_MANIFEST)).band())
                 .isEqualTo(DetectionBand.LOW);
     }
 
@@ -60,7 +61,7 @@ class DetectionBandPolicyTest {
     void AI_편집_표시는_높음으로_올리지_않고_낮음을_불확실로만_올린다() {
         List<ProvenanceSignal> edited = List.of(ProvenanceSignal.AI_EDIT_DECLARED);
 
-        DetectionBandPolicy.Assessment low = policy.assess(10, 1024, 768, edited);
+        DetectionBandPolicy.Assessment low = policy.assess(5, 1024, 768, edited);
         assertThat(low.band()).isEqualTo(DetectionBand.UNCERTAIN);
         assertThat(low.basis()).isEqualTo(AssessmentBasis.PROVENANCE);
 
@@ -76,6 +77,18 @@ class DetectionBandPolicyTest {
     void 출처_신호가_없다고_진짜로_보지_않는다() {
         // 점수가 높으면 신호가 없어도 높음 그대로다.
         assertThat(policy.assess(95, 1024, 768, List.of()).band()).isEqualTo(DetectionBand.HIGH);
+    }
+
+    @Test
+    void 설정이_없으면_낮음_기준은_10이고_9와_10에서_갈린다() {
+        new ApplicationContextRunner().withUserConfiguration(DetectionBandPolicy.class).run(context -> {
+            DetectionBandPolicy defaults = context.getBean(DetectionBandPolicy.class);
+
+            assertThat(defaults.assess(9, 1024, 768, List.of()).band()).isEqualTo(DetectionBand.LOW);
+            assertThat(defaults.assess(10, 1024, 768, List.of()).band()).isEqualTo(DetectionBand.UNCERTAIN);
+            assertThat(defaults.assess(70, 1024, 768, List.of()).band()).isEqualTo(DetectionBand.UNCERTAIN);
+            assertThat(defaults.assess(71, 1024, 768, List.of()).band()).isEqualTo(DetectionBand.HIGH);
+        });
     }
 
     @Test

@@ -54,7 +54,7 @@ Signal 서버 ── mode=llm  ──▶ LlmDeepfakeDetector ──▶ 비전 LL
 ```
 
 - 모드는 `deepfake-detection.mode`(환경변수 `DEEPFAKE_DETECTION_MODE`, 기본 `llm`)로 바꾼다. 주소와 시간 제한은 `deepfake-detection.http.base-url`, `timeout-seconds`.
-- 점수(`score`, 0~1, 가짜일 확률)는 모델 출력 그대로(보정 전)다. 서버는 이를 `riskScore`(0~100)로 옮기고 기존 구간(30 미만 REAL, 70 이하 SUSPICIOUS, 초과 FAKE)으로 `verdict`를 정한다.
+- 점수(`score`, 0~1, 가짜일 확률)는 모델 출력 그대로(보정 전)다. 서버는 이를 `riskScore`(0~100)로 옮기고 등급(LOW→REAL, UNCERTAIN→SUSPICIOUS, HIGH→FAKE)에 따라 `verdict`를 정한다. 구간은 아래 "화면에 보이는 단계와 점수 구간"에 있다.
   `confidence`는 모델이 고른 쪽의 확률 `max(score, 1 - score)`이다. 등급과 판단 불가는 아래 "합성 가능성 등급과 판단 불가"를 참고.
 - 이 모델은 얼굴 검출을 하지 않아 `NO_FACE_DETECTED`를 내지 않는다. 얼굴이 없는 이미지도 점수가 나온다. 근거(`evidences`)는 모델이 내지 않으며, 설명기를 켰을 때만 이미 정해진 등급의 설명이 들어간다(기본은 빈 목록).
 - 영상은 지원하지 않는다(`VIDEO_NOT_SUPPORTED`). 호출 실패, 시간 초과, 범위 밖 점수는 룰 기반 값으로 대체하지 않고 `FAILED`로 처리한다.
@@ -87,7 +87,7 @@ Signal 서버 ── mode=llm  ──▶ LlmDeepfakeDetector ──▶ 비전 LL
 | 화면 | 등급(`band`) | 점수 구간 | 그 밖의 조건 |
 |---|---|---|---|
 | 초록 "합성 가능성 낮음" | `LOW` | 0~9 | AI 편집 표시(`AI_EDIT_DECLARED`)가 있으면 `UNCERTAIN`으로 올린다 |
-| 노랑 "불확실" | `UNCERTAIN` | 10~70 | |
+| 노랑 "불확실" | `UNCERTAIN` | 10~70 | 점수가 0~9여도 AI 편집 표시가 있으면 노랑이 되고, 이때는 점수가 없다(`assessmentBasis=PROVENANCE`) |
 | 빨강 "합성 가능성 높음" | `HIGH` | 71~100 | 점수와 무관하게 강한 출처 신호(생성 도구 기록, AI 생성 표시)가 있어도 `HIGH` |
 | 회색 "판단 불가" | `UNDETERMINED` | 점수 없음 | 짧은 변이 256px 미만 |
 

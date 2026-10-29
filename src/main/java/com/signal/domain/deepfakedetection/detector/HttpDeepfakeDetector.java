@@ -71,7 +71,7 @@ public class HttpDeepfakeDetector implements DeepfakeDetector {
 
     HttpDeepfakeDetector(FileStorage fileStorage, DeepfakeDetectionRepository deepfakeDetectionRepository,
                          RestClient restClient) {
-        this(fileStorage, deepfakeDetectionRepository, restClient, new DetectionBandPolicy(30, 70, 256), null);
+        this(fileStorage, deepfakeDetectionRepository, restClient, new DetectionBandPolicy(10, 70, 256), null);
     }
 
     HttpDeepfakeDetector(FileStorage fileStorage, DeepfakeDetectionRepository deepfakeDetectionRepository,
