@@ -26,9 +26,11 @@ class EvaluateTest(unittest.TestCase):
     def test_지표와_변형_생성기_견고성(self):
         results = [Result(score=s) for s in (0.1, 0.2, 0.9, 0.3, 0.6, 0.4)]
         report = run_eval.evaluate(self.items(), results, 0.5)
-        self.assertEqual(report["overall"]["n"], 6)
-        self.assertEqual(report["by_generator_fake_only"]["flux"]["fnr"], 1.0)
-        self.assertEqual(report["by_generator_fake_only"]["sdxl"]["fnr"], 0.5)
+        self.assertEqual(report["overall"]["n"], 4)  # 변형(jpeg70)은 overall에 넣지 않는다
+        self.assertEqual(report["by_variant"]["original"]["n"], 4)
+        self.assertEqual(report["by_variant"]["jpeg70"]["n"], 2)
+        self.assertEqual(report["by_generator_fake_only"]["flux"], {"n": 1, "fnr": 1.0})
+        self.assertEqual(report["by_generator_fake_only"]["sdxl"], {"n": 1, "fnr": 0.0})  # 변형 행(0.4, 미탐)은 세지 않는다
         rob = report["robustness_vs_original"]["jpeg70"]
         self.assertEqual(rob["pairs"], 2)
         self.assertEqual(rob["verdict_flip_rate"], 1.0)  # r1: 0.1->0.6 뒤집힘, f1: 0.9->0.4 뒤집힘
@@ -40,14 +42,28 @@ class EvaluateTest(unittest.TestCase):
         report = run_eval.evaluate(self.items(), results, 0.5)
         self.assertEqual(report["failed"]["count"], 2)
         self.assertEqual(report["failed"]["reasons"], {"FAILED:TIMEOUT": 2})
-        self.assertEqual(report["overall"]["n"], 4)
+        self.assertEqual(report["overall"]["n"], 3)  # 성공한 원본만: r1, f1, f2 (r2는 실패)
 
     def test_판단_보류_구간은_지표에서_제외(self):
         results = [Result(score=s) for s in (0.1, 0.45, 0.9, 0.55, 0.1, 0.9)]
         report = run_eval.evaluate(self.items(), results, 0.5, 0.4, 0.6)
         self.assertEqual(report["abstained"]["count"], 2)
-        self.assertEqual(report["overall"]["n"], 4)
+        self.assertEqual(report["overall"]["n"], 2)  # 원본 4장 중 보류 2장을 뺀 r1, f1
         self.assertEqual(report["overall"]["fpr"], 0.0)
+
+    def test_변형을_더_만들어도_overall은_원본만으로_같다(self):
+        base = self.items()[:4]
+        scores = (0.1, 0.2, 0.9, 0.3)
+        only_originals = run_eval.evaluate(base, [Result(score=s) for s in scores], 0.5)
+        with_variants = run_eval.evaluate(self.items(), [Result(score=s) for s in scores + (0.6, 0.4)], 0.5)
+        self.assertEqual(only_originals["overall"], with_variants["overall"])
+
+    def test_지연은_성공한_요청만으로_계산한다(self):
+        items = [manifest_mod.Item("r", 0), manifest_mod.Item("f", 1, generator="g"), manifest_mod.Item("x", 1, generator="g")]
+        results = [Result(score=0.1, latency_ms=100), Result(score=0.9, latency_ms=200),
+                   Result(error="타임아웃", latency_ms=120000)]
+        report = run_eval.evaluate(items, results, 0.5)
+        self.assertEqual(report["latency_ms"]["p95"], 200)
 
 
 class _FakeServer(BaseHTTPRequestHandler):
@@ -78,6 +94,8 @@ class _FakeServer(BaseHTTPRequestHandler):
         value = _FakeServer.stored[detection_id]
         if value == 255:
             self._json(200, {"status": "FAILED", "failureReason": "NO_FACE_DETECTED"})
+        elif value == 254:
+            self._json(200, {"status": "COMPLETED", "riskScore": 50, "fallbackUsed": True})
         else:
             self._json(200, {"status": "COMPLETED", "riskScore": value, "fallbackUsed": False})
 
@@ -146,6 +164,33 @@ class EndToEndTest(unittest.TestCase):
             res = ServerDetector("http://127.0.0.1:1", timeout=2).detect(str(p))
             self.assertIsNone(res.score)
             self.assertTrue(res.error)
+
+    def test_서버의_폴백_점수는_정상_점수로_세지_않는다(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "x.png"
+            p.write_bytes(bytes([254]) + b"x")
+            res = ServerDetector(self.base, timeout=10, poll_interval=0.01).detect(str(p))
+            self.assertIsNone(res.score)
+            self.assertEqual(res.error, "FALLBACK")
+
+    def test_폴백은_실패_이유로_리포트에_드러난다(self):
+        items = [manifest_mod.Item("r", 0), manifest_mod.Item("f", 1, generator="g")]
+        report = run_eval.evaluate(items, [Result(score=0.1), Result(error="FALLBACK")], 0.5)
+        self.assertEqual(report["failed"]["reasons"], {"FALLBACK": 1})
+        self.assertEqual(report["failed"]["rate"], 0.5)
+
+    def test_server_탐지기는_localhost가_아니면_허용_옵션이_필요하다(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            manifest = self.make_set(tmp)
+            with self.assertRaises(SystemExit) as ctx:
+                run_eval.main(["--manifest", manifest, "--detector", "server", "--base-url", "https://api.example.com"])
+            self.assertEqual(ctx.exception.code, 2)
+
+    def test_is_local_url(self):
+        for url in ("http://localhost:8080", "http://127.0.0.1:8080", "http://[::1]:8080", "http://dev.localhost"):
+            self.assertTrue(run_eval.is_local_url(url), url)
+        for url in ("https://api.example.com", "http://10.0.0.5:8080", "http://localhost.evil.com"):
+            self.assertFalse(run_eval.is_local_url(url), url)
 
     def test_check_모드는_문제가_있으면_1(self):
         with tempfile.TemporaryDirectory() as tmp:

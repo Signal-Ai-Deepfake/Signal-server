@@ -11,7 +11,7 @@
     python3 scripts/detect-eval/run_eval.py --manifest eval/manifest.csv --detector http \\
         --base-url http://localhost:8000 --report reports/community-forensics.json
 
-    # 현재 LLM 탐지(기준선) 또는 서버 전체를 평가 (로컬/개발 서버에서만)
+    # 현재 LLM 탐지(기준선) 또는 서버 전체를 평가 (로컬/개발 서버에서만. localhost가 아니면 --allow-remote 필요)
     python3 scripts/detect-eval/run_eval.py --manifest eval/manifest.csv --detector server \\
         --base-url http://localhost:8080 --report reports/baseline-llm.json
 
@@ -24,6 +24,7 @@ import sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.parse import urlparse
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import manifest as manifest_mod  # noqa: E402
@@ -53,10 +54,14 @@ def evaluate(items, results, threshold, abstain_low=None, abstain_high=None):
     def group(rows):
         return metrics.summarize([r.score for _, r in rows], [i.label for i, _ in rows], threshold)
 
+    # 변형은 같은 원본의 복사본이라 서로 독립이 아니고 n을 부풀린다. overall과 생성기별 지표는 원본만으로 계산하고,
+    # 변형은 by_variant와 robustness_vs_original로만 본다.
+    originals = [(it, res) for it, res in scored if it.variant == "original"]
     by_variant = defaultdict(list)
     by_generator = defaultdict(list)
     for it, res in scored:
         by_variant[it.variant].append((it, res))
+    for it, res in originals:
         if it.label == 1 and it.generator:
             by_generator[it.generator].append((it, res))
 
@@ -77,7 +82,7 @@ def evaluate(items, results, threshold, abstain_low=None, abstain_high=None):
             robustness[variant] = {"pairs": len(deltas), "mean_abs_score_delta": sum(deltas) / len(deltas),
                                    "verdict_flip_rate": flips / len(deltas)}
 
-    latencies = [res.latency_ms for _, res in zip(items, results)]
+    latencies = [res.latency_ms for res in results if res.score is not None]  # 실패한 요청(타임아웃 등)의 시간은 뺀다
     models = sorted({f"{r.model}@{r.model_version}" if r.model_version else (r.model or "")
                      for r in results if r.model})
     return {
@@ -87,7 +92,7 @@ def evaluate(items, results, threshold, abstain_low=None, abstain_high=None):
         "failed": {"count": sum(failed.values()), "rate": sum(failed.values()) / len(items) if items else None,
                    "reasons": dict(failed)},
         "abstained": {"count": abstained, "low": abstain_low, "high": abstain_high},
-        "overall": group(scored) if scored else None,
+        "overall": group(originals) if originals else None,  # 원본만(변형 제외)
         "by_variant": {v: group(rows) for v, rows in sorted(by_variant.items())},
         "by_generator_fake_only": {g: {"n": len(rows), "fnr": metrics.rates(metrics.confusion(
             [r.score for _, r in rows], [1] * len(rows), threshold))["fnr"]} for g, rows in sorted(by_generator.items())},
@@ -105,11 +110,12 @@ def print_report(report, name):
 
     o = report["overall"]
     print(f"\n== {name} (임계값 {report['threshold']}) ==")
-    print(f"전체 {report['total']}장 | 실패 {report['failed']['count']} ({pct(report['failed']['rate'])})"
+    print(f"전체 {report['total']}장(변형 포함) | 실패 {report['failed']['count']} ({pct(report['failed']['rate'])})"
           f" | 판단 보류 {report['abstained']['count']}")
     if report["failed"]["reasons"]:
         print("  실패 이유:", report["failed"]["reasons"])
     if o:
+        print("  [원본만]")
         print(f"  AUC {num(o['auc'])} | 오탐률 {pct(o['fpr'])} (real {o['n_real']}장) | 미탐률 {pct(o['fnr'])} "
               f"(fake {o['n_fake']}장) | 정확도 {pct(o['accuracy'])}")
         print(f"  오탐률 1%일 때 탐지율 {pct(o['tpr_at_fpr_1'])} | 5%일 때 {pct(o['tpr_at_fpr_5'])}"
@@ -129,6 +135,11 @@ def print_report(report, name):
     print(f"  지연 p50 {lat['p50']:.0f}ms / p95 {lat['p95']:.0f}ms" if lat["p50"] is not None else "")
 
 
+def is_local_url(url):
+    host = (urlparse(url).hostname or "").lower()
+    return host in ("localhost", "127.0.0.1", "::1") or host.endswith(".localhost")
+
+
 def make_detector(args):
     if args.detector == "http":
         return HttpDetector(args.base_url, timeout=args.timeout)
@@ -145,6 +156,8 @@ def main(argv=None):
     p.add_argument("--threshold", type=float, default=0.5, help="이 점수 이상이면 fake (기본 0.5, 모델 카드 기본값)")
     p.add_argument("--abstain-low", type=float, help="판단 보류 구간 하한(이 구간의 점수는 지표에서 제외)")
     p.add_argument("--abstain-high", type=float, help="판단 보류 구간 상한")
+    p.add_argument("--allow-remote", action="store_true",
+                   help="server 탐지기를 localhost가 아닌 주소에 쓰는 것을 허용(이미지마다 새 익명 ID로 한도를 우회하므로 운영 서버에는 쓰지 말 것)")
     p.add_argument("--timeout", type=int, default=120)
     p.add_argument("--workers", type=int, default=1, help="동시 요청 수(지연 측정이 목적이면 1)")
     p.add_argument("--limit", type=int, help="앞에서 N장만(연기 테스트용)")
@@ -168,6 +181,9 @@ def main(argv=None):
         return 1
     if not args.detector or not args.base_url:
         p.error("--detector와 --base-url이 필요합니다(매니페스트만 보려면 --check)")
+    if args.detector == "server" and not args.allow_remote and not is_local_url(args.base_url):
+        p.error("server 탐지기는 이미지마다 새 익명 ID를 만들어 익명 한도를 우회합니다. localhost가 아닌 주소는 "
+                "개발/스테이징 서버가 확실할 때만 --allow-remote를 붙여 쓰세요.")
     if (args.abstain_low is None) != (args.abstain_high is None):
         p.error("--abstain-low와 --abstain-high는 함께 줘야 합니다")
 
