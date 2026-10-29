@@ -76,6 +76,12 @@ deepfake-detection:
   http:
     base-url: ${DEEPFAKE_DETECTION_API_URL:http://localhost:8000}
     timeout-seconds: ${DEEPFAKE_DETECTION_API_TIMEOUT_SECONDS:60}
+  bands:   # mode=http의 합성 가능성 등급. 기본값은 기존 verdict 구간을 옮긴 잠정값이며, 평가 세트(#35) 결과로 정한다
+    low-below: ${DEEPFAKE_BAND_LOW_BELOW:30}         # 점수(0~100)가 이 값 미만이면 낮음
+    high-above: ${DEEPFAKE_BAND_HIGH_ABOVE:70}       # 이 값 초과면 높음, 그 사이는 불확실
+    min-short-edge-px: ${DEEPFAKE_BAND_MIN_SHORT_EDGE_PX:256}   # 짧은 변이 이보다 작으면 판단 불가
+  explain:
+    enabled: ${DEEPFAKE_EXPLAIN_ENABLED:false}   # true면 비전 LLM이 이미 정해진 등급을 설명한다(등급은 바꾸지 못함)
 
 chat:
   llm:
