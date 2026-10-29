@@ -9,6 +9,9 @@
 #   GHCR_TOKEN  GHCR 토큰 (Actions의 GITHUB_TOKEN — 워크플로 실행 중에만 유효)
 # 선택 환경변수
 #   RUN_SCHEMA_UPDATE=true  엔티티에 컬럼/테이블이 추가된 배포에서 ddl-auto=update로 스키마를 먼저 반영
+#   DEEPFAKE_DETECTION_MODE  http면 전용 탐지 서비스(detect)를 띄우고 앱이 그걸 쓰게 한다. llm이면 detect를 내린다.
+#                            비어 있으면 건드리지 않는다(서버 .env와 compose 기본값을 따른다).
+#   DETECT_IMAGE            detect 이미지(예: ghcr.io/somaus/signal-detect:<sha>). http일 때 필요하다.
 #
 set -euo pipefail
 
@@ -20,6 +23,18 @@ cd "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUN_SCHEMA_UPDATE="${RUN_SCHEMA_UPDATE:-false}"
 
 log() { printf '\n▶ %s\n' "$*"; }
+
+# detect 컨테이너가 healthy가 될 때까지 기다린다. 첫 배포는 모델(약 83MB)을 받느라 몇 분 걸릴 수 있다.
+detect_healthy() {
+    local cid status
+    for _ in $(seq 1 "$1"); do
+        cid="$(docker compose --profile detect ps -q detect 2>/dev/null || true)"
+        status="$([ -n "$cid" ] && docker inspect --format '{{.State.Health.Status}}' "$cid" 2>/dev/null || true)"
+        [ "$status" = "healthy" ] && return 0
+        sleep 5
+    done
+    return 1
+}
 
 # 헬스체크. prod는 compose가 80:8080으로 매핑하므로 호스트에서는 80포트다.
 health() { curl -fsS --retry "$1" --retry-delay 3 --retry-all-errors -o /dev/null http://localhost/health; }
@@ -39,6 +54,38 @@ trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
 log "이미지 pull"
 docker pull "$APP_IMAGE"
 export APP_IMAGE
+
+# 전용 탐지 서비스(detect). 준비되지 않으면 앱만이라도 정상 배포되도록 llm 방식으로 내린다.
+# (http 방식에서 detect가 죽어 있으면 탐지 요청이 모두 실패하기 때문이다.)
+case "${DEEPFAKE_DETECTION_MODE:-}" in
+    http)
+        if [ -z "${DETECT_IMAGE:-}" ]; then
+            log "DETECT_IMAGE가 없어 llm 방식으로 배포합니다"
+            export DEEPFAKE_DETECTION_MODE=llm
+        else
+            log "탐지 서비스 이미지 pull: $DETECT_IMAGE"
+            export DETECT_IMAGE
+            if docker pull "$DETECT_IMAGE" && docker compose --profile detect up -d detect; then
+                log "탐지 서비스 준비 대기 (최대 5분)"
+                if detect_healthy 60; then
+                    log "탐지 서비스 준비됨 — http 방식으로 배포"
+                else
+                    log "탐지 서비스가 준비되지 않았습니다 — llm 방식으로 배포합니다"
+                    docker compose --profile detect logs --tail=40 detect || true
+                    export DEEPFAKE_DETECTION_MODE=llm
+                fi
+            else
+                log "탐지 서비스를 띄우지 못했습니다 — llm 방식으로 배포합니다"
+                export DEEPFAKE_DETECTION_MODE=llm
+            fi
+        fi
+        ;;
+    llm)
+        # 쓰지 않는 detect가 2GB 서버의 메모리를 차지하지 않게 내린다.
+        docker compose --profile detect rm -sf detect >/dev/null 2>&1 || true
+        export DEEPFAKE_DETECTION_MODE=llm
+        ;;
+esac
 
 # prod 프로필은 ddl-auto=validate라서, 엔티티에 필드가 추가된 배포는 스키마를 먼저 만들어야 한다.
 if [ "$RUN_SCHEMA_UPDATE" = "true" ]; then
@@ -81,7 +128,7 @@ docker compose up -d app
 
 log "헬스체크"
 if health 40; then
-    log "배포 성공: $APP_IMAGE"
+    log "배포 성공: $APP_IMAGE (탐지 방식: ${DEEPFAKE_DETECTION_MODE:-서버 설정})"
 else
     log "헬스체크 실패"
     docker compose logs --tail=60 app || true
