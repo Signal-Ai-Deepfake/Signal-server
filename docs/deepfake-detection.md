@@ -46,6 +46,9 @@ Signal 서버 ── mode=llm  ──▶ LlmDeepfakeDetector ──▶ 비전 LL
 - 이 모델은 얼굴 검출을 하지 않아 `NO_FACE_DETECTED`를 내지 않고, 근거 영역(`evidences`)도 내지 않는다(빈 목록). 얼굴이 없는 이미지도 점수가 나온다.
 - 영상은 지원하지 않는다(`VIDEO_NOT_SUPPORTED`). 호출 실패, 시간 초과, 범위 밖 점수는 룰 기반 값으로 대체하지 않고 `FAILED`로 처리한다.
 - 서비스는 모델이 없어도 뜨며, `GET /health`가 503과 이유를 돌려준다. 자세한 실행 방법은 `detect-lab/README.md`.
+- 가중치는 커밋 해시(`DETECT_MODEL_REVISION`)로 고정해서 받고, 필요하면 `DETECT_MODEL_SHA256`으로 파일을 확인한다. 평가(#35)에서 고른 해시를 그대로 운영에 쓴다.
+- 추론 서비스는 서버가 받는 이미지 한도(100MB)와 같은 크기까지 받고, 그보다 크거나 64MP를 넘는 이미지는 413을 돌려준다. 이 경우 서버는 `AI_SERVER_ERROR`로 처리한다.
+- `/detect`에는 인증이 없다. compose는 포트를 게시하지 않으며, 외부에 열지 않는다.
 
 ## 전처리 확인
 
