@@ -79,12 +79,22 @@ def tpr_at_fpr(scores, labels, max_fpr):
     n_fake = sum(1 for y in labels if y == 1)
     if not n_real or not n_fake:
         return None
+    # 점수 내림차순으로 한 번 훑으며 임계값(고유한 점수)마다 tp·fp를 누적한다. O(n log n).
+    ordered = sorted(zip(scores, labels), key=lambda x: -x[0])
     best = None
-    for t in sorted(set(scores), reverse=True):
-        r = rates(confusion(scores, labels, t))
-        if r["fpr"] is not None and r["fpr"] <= max_fpr:
-            tpr = 1.0 - r["fnr"]
-            if best is None or tpr > best[0] or (tpr == best[0] and t < best[1]):
+    tp = fp = 0
+    i = 0
+    while i < len(ordered):
+        t = ordered[i][0]
+        while i < len(ordered) and ordered[i][0] == t:  # 같은 점수는 한꺼번에 fake로 판정한다(score >= t)
+            if ordered[i][1] == 1:
+                tp += 1
+            else:
+                fp += 1
+            i += 1
+        if fp / n_real <= max_fpr:
+            tpr = tp / n_fake
+            if best is None or tpr >= best[0]:  # 임계값이 내려가는 순서라 같은 탐지율이면 더 낮은 임계값을 택한다
                 best = (tpr, t)
     if best is None:  # 가장 높은 점수보다 높게 잡으면 아무것도 fake로 판정하지 않는다(오탐 0, 탐지 0)
         return (0.0, max(scores) + 1e-9)

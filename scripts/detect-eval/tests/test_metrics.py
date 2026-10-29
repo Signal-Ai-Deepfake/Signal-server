@@ -45,6 +45,42 @@ class MetricsTest(unittest.TestCase):
         tpr, _ = metrics.tpr_at_fpr([0.1, 0.9], [1, 0], 0.0)
         self.assertEqual(tpr, 0.0)
 
+    def test_tpr_at_fpr는_전수_탐색과_같은_결과(self):
+        import random
+
+        def brute(scores, labels, max_fpr):
+            n_real = sum(1 for y in labels if y == 0)
+            n_fake = sum(1 for y in labels if y == 1)
+            best = None
+            for t in sorted(set(scores), reverse=True):
+                conf = metrics.confusion(scores, labels, t)
+                if conf["fp"] / n_real <= max_fpr:
+                    tpr = conf["tp"] / n_fake  # 1 - fnr은 부동소수점 오차가 생겨 개수로 직접 나눈다
+                    if best is None or tpr > best[0] or (tpr == best[0] and t < best[1]):
+                        best = (tpr, t)
+            return best if best is not None else (0.0, max(scores) + 1e-9)
+
+        rng = random.Random(7)
+        for _ in range(200):
+            n = rng.randint(2, 60)
+            scores = [round(rng.random(), rng.choice([1, 2, 6])) for _ in range(n)]  # 동점이 많은 경우도 섞는다
+            labels = [rng.randint(0, 1) for _ in range(n)]
+            if 0 not in labels or 1 not in labels:
+                continue
+            for max_fpr in (0.0, 0.01, 0.05, 0.25, 1.0):
+                self.assertEqual(metrics.tpr_at_fpr(scores, labels, max_fpr), brute(scores, labels, max_fpr),
+                                 (scores, labels, max_fpr))
+
+    def test_tpr_at_fpr는_큰_세트에서도_빠르다(self):
+        import random
+        import time
+        rng = random.Random(1)
+        scores = [rng.random() for _ in range(200_000)]
+        labels = [rng.randint(0, 1) for _ in range(200_000)]
+        started = time.monotonic()
+        metrics.tpr_at_fpr(scores, labels, 0.05)
+        self.assertLess(time.monotonic() - started, 5.0)
+
     def test_percentile(self):
         self.assertEqual(metrics.percentile([5, 1, 3], 50), 3)
         self.assertIsNone(metrics.percentile([], 50))
