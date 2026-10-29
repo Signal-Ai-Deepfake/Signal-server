@@ -24,7 +24,7 @@ curl -F file=@photo.jpg http://localhost:8000/detect
 # {"score":0.0~1.0,"model":"CommunityForensics-DeepfakeDet-ViT","modelVersion":"onnx-fp32+<가중치 해시12자리>","width":..,"height":..}
 ```
 
-Docker Compose에서는 `DETECT_MODEL_REVISION=<커밋 해시> docker compose --profile detect up -d detect` (`.env`에 적어도 된다).
+Docker Compose에서는 `docker compose --profile detect up -d detect`. compose에 기본 커밋 해시와 sha256이 들어 있고, `.env`나 환경변수로 바꿀 수 있다.
 
 **포트를 외부에 열지 마세요.** `/detect`에는 인증이 없습니다. compose는 포트를 게시하지 않아 같은 네트워크의 서버만 호출하며, 컨테이너는 root가 아닌 사용자로 실행됩니다. 서비스를 단독으로 띄워 포트를 열어야 한다면 앞단에서 접근을 제한하세요.
 
@@ -32,8 +32,8 @@ Docker Compose에서는 `DETECT_MODEL_REVISION=<커밋 해시> docker compose --
 |---|---|---|
 | `DETECT_MODEL_PATH` | `/models/onnx/model.onnx` | 모델 파일 |
 | `DETECT_MODEL_REPO` / `DETECT_MODEL_FILE` | CommunityForensics / `onnx/model.onnx` | `fetch_model.py`가 받을 곳 |
-| `DETECT_MODEL_REVISION` | (필수) | 새로 받을 때 모델 저장소의 **커밋 해시 40자리**. 비어 있거나 `main` 같은 이름이면 받지 않고 멈춘다. 평가(#35)로 고른 가중치와 운영 가중치가 달라지지 않게 하려는 것이다 |
-| `DETECT_MODEL_SHA256` | (선택) | 주면 `onnx/model.onnx`의 sha256을 확인한다(이미 받아 둔 파일도) |
+| `DETECT_MODEL_REVISION` | compose: `ac6ee457bea904a373065754107451793b56db00` / 직접 실행: 필수 | 새로 받을 때 모델 저장소의 **커밋 해시 40자리**. 비어 있거나 `main` 같은 이름이면 받지 않고 멈춘다. 평가(#35)로 고른 가중치와 운영 가중치가 달라지지 않게 하려는 것이다 |
+| `DETECT_MODEL_SHA256` | compose: `a42c7d740fbb…` / 직접 실행: 선택 | 주면 `onnx/model.onnx`의 sha256을 확인한다(이미 받아 둔 파일도) |
 | `DETECT_MODEL_NAME` / `DETECT_MODEL_VERSION` | `CommunityForensics-DeepfakeDet-ViT` / `onnx-fp32` | 응답의 `model`, `modelVersion`(뒤에 가중치 해시가 붙는다) |
 | `DETECT_MAX_UPLOAD_MB` | `100` | 넘으면 413. 서버가 받는 이미지 한도(100MB)와 같다 |
 | `DETECT_MAX_PIXELS` | `64000000` | 넘으면 413(압축 폭탄 방지). 휴대폰 48~50MP는 받는다 |
