@@ -15,7 +15,7 @@
 
 | 모델 | 코드·가중치 라이선스 | 크기 | CPU 추론 | 학습 데이터 | 결정 |
 |---|---|---|---|---|---|
-| CommunityForensics ViT-S (`buildborderless/CommunityForensics-DeepfakeDet-ViT`) | MIT | 2,181만 파라미터. `model.safetensors` 87MB, ONNX FP32 87MB(int8 23MB, q4 16MB) | onnxruntime CPU로 구성(`detect-lab`). 지연은 측정 전 | 270만 장, 생성기 4,803종. 진짜 이미지는 LAION 중심(40%) 등 11개 데이터셋 | **1순위** |
+| CommunityForensics ViT-S (`buildborderless/CommunityForensics-DeepfakeDet-ViT`) | MIT | 2,181만 파라미터. `model.safetensors` 87MB, ONNX FP32 87MB(int8 23MB, q4 16MB) | onnxruntime CPU로 구성(`detect-lab`). 공개 데이터 164장 측정에서 p50 213ms·p95 292ms(클라우드 CPU 컨테이너. 운영 서버에서는 다시 잰다) | 270만 장, 생성기 4,803종. 진짜 이미지는 LAION 중심(40%) 등 11개 데이터셋 | **1순위** |
 | GenD CLIP-L/14 (`yermandy/GenD_CLIP_L_14`) | MIT(Hugging Face 카드, GitHub 저장소 LICENSE 모두) | 3.04억 파라미터. `model.safetensors` 1.2GB | 돌아가지만 ViT-S보다 훨씬 크다. 지연은 측정 전. ONNX는 제공되지 않음 | FaceForensics++ 같은 얼굴 조작 영상 벤치마크 계열 | **2순위(비교용)** |
 | DEAR (`k-aisi-anti-deepfake/dear-checkpoints`) | **CC BY-NC 4.0** + CreativeML OpenRAIL-M 사용 제한 | 체크포인트 4개, 각 약 94MB(ResNet-50 기반) | 구조상 가능. 쓰지 않으므로 확인 안 함 | LSUN·MS COCO 진짜 이미지, LDM 가짜 이미지, SD 1.5 인페인팅 | **제외**(비상업) |
 
@@ -26,7 +26,7 @@ DEAR는 카드에 "연구 및 비상업 용도"라고 명시돼 있고 SD 1.5로
 ### 라이선스에서 따로 확인해야 하는 것
 
 - **CommunityForensics 학습 데이터는 연구용이다.** 가중치와 코드는 MIT지만, 학습에 쓴 데이터셋(`OwensLab/CommunityForensics`)은 "CC BY 4.0, 연구 목적으로만 공개"이고, 데이터의 가짜 이미지는 각 생성 모델의 라이선스(대부분 CreativeML OpenRAIL-M)를 따른다. 진짜 이미지는 LAION 같은 웹 수집 이미지다. 가중치 라이선스(MIT)가 이를 덮는지는 이 문서가 판단하지 않는다. 상업 서비스에 쓰기 전에 팀과 법률 검토로 정해야 한다.
-- **재업로드 저장소를 쓴다.** 우리가 쓰는 저장소는 원저자(Jeongsoo Park, Andrew Owens)의 공식 저장소(`OwensLab/commfor-model-384`, MIT)가 아니라 Borderless / Ethix R&D가 올린 변환본이다. 이 저장소의 가중치는 공식 체크포인트(`model_v11_ViT_384_base_ckpt.pt`)에서 다시 만들었다고 카드에 적혀 있다. 공식 저장소와 점수가 같은지는 직접 대조하지 않았다. 평가 전에 공식 가중치와 몇 장을 대조하거나, 공식 체크포인트를 직접 변환하는 방법을 검토한다.
+- **재업로드 저장소를 쓴다.** 우리가 쓰는 저장소는 원저자(Jeongsoo Park, Andrew Owens)의 공식 저장소(`OwensLab/commfor-model-384`, MIT)가 아니라 Borderless / Ethix R&D가 올린 변환본이다. 2026-10-29에 공식 저장소의 `model.safetensors`(87,262,324바이트, 커밋 `6076002`, sha256 `b89f36275f3bf5e2b040eee36597a8f19db051bff9a473a9cf7b2466284fb387`)를 받아 우리가 쓰는 ONNX(FP32)와 텐서 단위로 대조했다. 임베딩·LayerNorm·편향·선형층 가중치가 전부 같은 값이고(ONNX는 선형층을 전치하고 `qkv`를 q/k/v로 나눈 배치만 다르다), 값이 다른 텐서는 없었다. 즉 가중치 출처 문제는 "변환본이 공식과 다른가"가 아니라 아래 데이터·법률 문제만 남는다. 대조 방법은 `docs/detect-eval-results.md`.
 - **GenD는 코드를 같이 가져와야 한다.** 카드의 사용 예가 저장소의 `src.hf.modeling_gend`를 불러오는 방식이고, 백본으로 `openai/clip-vit-large-patch14`를 따로 받는다. 학습 데이터(FaceForensics++ 등)의 이용 약관은 확인하지 않았다. 비교용으로만 쓰고 서비스 후보로 올리기 전에 확인한다.
 - **원저자의 경고.** 데이터셋 카드는 "우리가 학습하거나 평가한 분류기는 실제 환경에서 그대로 쓰기에는 오류율이 너무 높고, 저자를 가짜 이미지 제작자로 잘못 지목하거나 생성물이 진짜로 인증되는 결과로 이어질 수 있다"고 적고 있다. 이 서비스가 점수 대신 등급과 "판단 불가"를 쓰고 이미지를 단정하지 않는 이유와 같다.
 - **편향.** 데이터셋은 LAION 캡션 중심이고 생성기의 대부분이 Stable Diffusion 계열이라, 다른 계열 생성기에는 약할 수 있다고 카드가 밝히고 있다.
@@ -75,7 +75,7 @@ Signal 서버 ── mode=llm  ──▶ LlmDeepfakeDetector ──▶ 비전 LL
 | `UNDETERMINED` | 판단 불가 | 짧은 변이 `min-short-edge-px`보다 작음(`undeterminedReason=LOW_RESOLUTION`) |
 
 - 등급은 `DetectionBandPolicy`가 정한다. 순서는 강한 출처 신호 → 해상도 → 점수 → (점수가 낮을 때) AI 편집 표시이며, LLM은 관여하지 않는다.
-- `deepfake-detection.bands.low-below`(30), `high-above`(70), `min-short-edge-px`(256)은 **잠정값**이다. 앞의 둘은 기존 verdict 구간을 그대로 옮긴 것이고, 평가 세트(#35)로 측정해서 정한다. 그때까지는 이 값으로 정확도를 말하지 않는다.
+- `deepfake-detection.bands.low-below`(10), `high-above`(70), `min-short-edge-px`(256)은 **잠정값**이다. `low-below`는 공개 데이터 평가(`docs/detect-eval-results.md`)에서 진짜 이미지가 LOW로 남는 비율(원본 99%·압축본 99~100%)과 가짜가 LOW로 새는 비율을 보고 30에서 10으로 낮췄다. `high-above`는 진짜 80장 중 HIGH가 0이었지만 표본이 작고 한국 SNS 사진이 아니라서, 오탐 비용을 생각해 70을 유지한다. `min-short-edge-px`는 이 평가에서 다루지 않았다. 실제 서비스 입력으로 다시 잰 뒤에야 확정한다. 그때까지는 이 값으로 정확도를 말하지 않는다.
 - 압축이 심한 사진을 판단 불가로 보내는 규칙은 아직 없다. 어떤 신호(JPEG 품질, 메신저 전송 흔적 등)가 믿을 만한지 평가에서 확인한 뒤에 넣는다.
 - 응답 필드: `band`, `assessmentBasis`(`MODEL` | `PROVENANCE`), `undeterminedReason`, `modelName`, `modelVersion`(가중치 해시 포함), `provenanceSignals`. 비전 LLM(`mode=llm`)과 이전 기록은 새 필드가 비어 있다.
 - **점수 숫자는 등급이 점수에서 나왔을 때만** 준다. `UNDETERMINED`이거나 `assessmentBasis=PROVENANCE`이면 `verdict`, `confidence`, `riskScore`가 `null`이다(등급과 모순되는 숫자가 보이지 않게). 하위 호환용 `verdict`는 LOW→REAL, UNCERTAIN→SUSPICIOUS, HIGH→FAKE이고 판단 불가에는 없다. 화면은 `band`를 기준으로 그리고 `riskScore`를 퍼센트로 보여 주지 않는 것을 권장한다.
