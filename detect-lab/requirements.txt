@@ -1,7 +1,9 @@
-onnxruntime
-numpy
-pillow
-fastapi
-uvicorn[standard]
-python-multipart
-huggingface_hub
+# 검증한 버전으로 고정한다. 특히 pillow는 resize 구현이 점수에 영향을 주고(transformers와 같은 전처리 결과를
+# pillow 12.3.0에서 확인), onnxruntime도 올리면 같은 입력의 점수가 달라질 수 있다. 올릴 때는 평가를 다시 돌린다.
+onnxruntime==1.23.2
+numpy==2.2.6
+pillow==12.3.0
+fastapi==0.162.0
+uvicorn[standard]==0.54.0
+python-multipart==0.0.32
+huggingface_hub==2.3.0
