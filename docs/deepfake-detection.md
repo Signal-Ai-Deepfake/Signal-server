@@ -42,13 +42,52 @@ Signal 서버 ── mode=llm  ──▶ LlmDeepfakeDetector ──▶ 비전 LL
 
 - 모드는 `deepfake-detection.mode`(환경변수 `DEEPFAKE_DETECTION_MODE`, 기본 `llm`)로 바꾼다. 주소와 시간 제한은 `deepfake-detection.http.base-url`, `timeout-seconds`.
 - 점수(`score`, 0~1, 가짜일 확률)는 모델 출력 그대로(보정 전)다. 서버는 이를 `riskScore`(0~100)로 옮기고 기존 구간(30 미만 REAL, 70 이하 SUSPICIOUS, 초과 FAKE)으로 `verdict`를 정한다.
-  `confidence`는 모델이 고른 쪽의 확률 `max(score, 1 - score)`이다. 구간 임계값을 평가 결과로 정하고 "판단 불가"를 두는 일은 #37에서 한다.
-- 이 모델은 얼굴 검출을 하지 않아 `NO_FACE_DETECTED`를 내지 않고, 근거 영역(`evidences`)도 내지 않는다(빈 목록). 얼굴이 없는 이미지도 점수가 나온다.
+  `confidence`는 모델이 고른 쪽의 확률 `max(score, 1 - score)`이다. 등급과 판단 불가는 아래 "합성 가능성 등급과 판단 불가"를 참고.
+- 이 모델은 얼굴 검출을 하지 않아 `NO_FACE_DETECTED`를 내지 않는다. 얼굴이 없는 이미지도 점수가 나온다. 근거(`evidences`)는 모델이 내지 않으며, 설명기를 켰을 때만 이미 정해진 등급의 설명이 들어간다(기본은 빈 목록).
 - 영상은 지원하지 않는다(`VIDEO_NOT_SUPPORTED`). 호출 실패, 시간 초과, 범위 밖 점수는 룰 기반 값으로 대체하지 않고 `FAILED`로 처리한다.
 - 서비스는 모델이 없어도 뜨며, `GET /health`가 503과 이유를 돌려준다. 자세한 실행 방법은 `detect-lab/README.md`.
 - 가중치는 커밋 해시(`DETECT_MODEL_REVISION`)로 고정해서 받고, 필요하면 `DETECT_MODEL_SHA256`으로 파일을 확인한다. 평가(#35)에서 고른 해시를 그대로 운영에 쓴다.
 - 추론 서비스는 서버가 받는 이미지 한도(100MB)와 같은 크기까지 받고, 그보다 크거나 64MP를 넘는 이미지는 413을 돌려준다. 이 경우 서버는 `AI_SERVER_ERROR`로 처리한다.
 - `/detect`에는 인증이 없다. compose는 포트를 게시하지 않으며, 외부에 열지 않는다.
+
+## 합성 가능성 등급과 판단 불가 (#37)
+
+`mode=http`(전용 탐지 모델)의 결과에는 퍼센트 대신 **등급(`band`)** 을 쓴다. 화면에는 "합성 가능성 낮음 / 불확실 / 높음 / 판단 불가"로 보여 주고, "가짜 확정" 같은 표현은 쓰지 않는다.
+
+| band | 뜻 | 정하는 기준 |
+|---|---|---|
+| `LOW` | 합성 가능성이 낮음(진짜라는 보증은 아님) | 점수 < `low-below` |
+| `UNCERTAIN` | 점수가 중간이라 어느 쪽이라고 말하기 어려움 | `low-below` ≤ 점수 ≤ `high-above` |
+| `HIGH` | 합성 가능성이 높음 | 점수 > `high-above`, 또는 강한 출처 신호 |
+| `UNDETERMINED` | 판단 불가 | 짧은 변이 `min-short-edge-px`보다 작음(`undeterminedReason=LOW_RESOLUTION`) |
+
+- 등급은 `DetectionBandPolicy`가 정한다. 순서는 강한 출처 신호 → 해상도 → 점수이며, LLM은 관여하지 않는다.
+- `deepfake-detection.bands.low-below`(30), `high-above`(70), `min-short-edge-px`(256)은 **잠정값**이다. 앞의 둘은 기존 verdict 구간을 그대로 옮긴 것이고, 평가 세트(#35)로 측정해서 정한다. 그때까지는 이 값으로 정확도를 말하지 않는다.
+- 압축이 심한 사진을 판단 불가로 보내는 규칙은 아직 없다. 어떤 신호(JPEG 품질, 메신저 전송 흔적 등)가 믿을 만한지 평가에서 확인한 뒤에 넣는다.
+- 응답 필드: `band`, `assessmentBasis`(`MODEL` | `PROVENANCE`), `undeterminedReason`, `modelName`, `modelVersion`(가중치 해시 포함), `provenanceSignals`. 비전 LLM(`mode=llm`)과 이전 기록은 새 필드가 비어 있다.
+- **점수 숫자는 등급이 점수에서 나왔을 때만** 준다. `UNDETERMINED`이거나 `assessmentBasis=PROVENANCE`이면 `verdict`, `confidence`, `riskScore`가 `null`이다(등급과 모순되는 숫자가 보이지 않게). 하위 호환용 `verdict`는 LOW→REAL, UNCERTAIN→SUSPICIOUS, HIGH→FAKE이고 판단 불가에는 없다. 화면은 `band`를 기준으로 그리고 `riskScore`를 퍼센트로 보여 주지 않는 것을 권장한다.
+
+### 출처 신호 (결정론적)
+
+`ProvenanceSignalExtractor`가 파일에서 직접 읽는다. 모델을 쓰지 않는다.
+
+| 신호 | 찾는 것 | 등급에 쓰는가 |
+|---|---|---|
+| `GENERATOR_METADATA` | PNG 텍스트 청크(Stable Diffusion WebUI의 `parameters`, ComfyUI의 `prompt`·`workflow`, InvokeAI), 파일 앞부분의 알려진 생성 도구 이름(Midjourney, DALL-E, Stable Diffusion, ComfyUI, NovelAI, Adobe Firefly, Leonardo.Ai) | 예(강한 근거 → `HIGH`) |
+| `AI_SOURCE_DECLARED` | IPTC `digitalSourceType`이 AI 생성(`trainedAlgorithmicMedia` 등)임을 표시 | 예(강한 근거 → `HIGH`) |
+| `C2PA_MANIFEST` | C2PA(JUMBF) 콘텐츠 자격 증명이 포함됨 | 아니오(있다는 사실만 알림) |
+
+- C2PA는 **서명을 검증하지 않는다.** 매니페스트가 있다는 것과 거기에 AI 생성 표시(`trainedAlgorithmicMedia`)가 있다는 것만 읽는다. 서명 검증은 별도 작업이다.
+- 메타데이터는 스크린샷, 재저장, 메신저 전송에서 사라진다. 그래서 **신호가 없다고 진짜로 보지 않는다.** 신호가 있을 때만 근거로 쓰고, 이 경우 점수가 낮아도 `HIGH`(`assessmentBasis=PROVENANCE`)가 된다.
+- 이름 검색은 휴리스틱이다. 오탐 가능성이 낮은 구체적인 문자열만 쓰며, 목록을 늘릴 때는 평가 세트의 진짜 이미지에서 걸리는지 먼저 확인한다.
+
+### LLM은 설명만 한다
+
+`deepfake-detection.explain.enabled=true`(기본 `false`)이면 `LlmDeepfakeExplainer`가 이미 정해진 등급을 설명하는 문장(`evidences`)을 만든다.
+
+- 설명기는 등급을 입력으로만 받고 결과로는 근거 목록만 돌려준다. 등급을 바꿀 방법이 없고, 실패해도 탐지 결과는 그대로 나간다(근거는 빈 목록).
+- `LOW`와 `UNDETERMINED`에서는 호출하지 않는다(설명할 근거가 없는데 근거를 만들어 내지 않게).
+- 프롬프트로 이미지에서 실제로 보이는 특징만 가능성 표현으로 서술하게 하고, "확정", "100%" 같은 단정 표현이 든 문장은 버린다.
 
 ## 전처리 확인
 
