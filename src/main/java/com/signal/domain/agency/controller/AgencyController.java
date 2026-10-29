@@ -7,6 +7,7 @@ import com.signal.domain.agency.entity.Agency;
 import com.signal.domain.agency.entity.AgencyConnection;
 import com.signal.domain.agency.entity.AgencySituationType;
 import com.signal.domain.agency.service.AgencyService;
+import com.signal.global.i18n.LanguageContext;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -31,7 +32,7 @@ public class AgencyController {
     public ResponseEntity<AgencyListResponse> getAgencies(
             @RequestParam(required = false) AgencySituationType situationType) {
         List<Agency> agencies = agencyService.getAgencies(situationType);
-        return ResponseEntity.ok(AgencyListResponse.from(agencies));
+        return ResponseEntity.ok(AgencyListResponse.from(agencies, LanguageContext.current()));
     }
 
     @PostMapping("/{agencyId}/connections")
