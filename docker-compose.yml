@@ -48,13 +48,22 @@ services:
   # 딥페이크 탐지 추론 서비스(전용 모델). 기본 배포에는 포함되지 않으며 `docker compose --profile detect up -d detect` 로 켠다.
   detect:
     profiles: ["detect"]
+    # CD는 러너에서 미리 빌드한 이미지를 DETECT_IMAGE로 주입한다(서버가 1 vCPU / 2GB라 서버에서 빌드하지 않는다).
+    # 값이 없으면 로컬 빌드 태그를 쓰므로 `docker compose --profile detect up -d --build detect`로 직접 빌드해도 된다.
+    image: ${DETECT_IMAGE:-signal-detect:local}
     build: ./detect-lab
     restart: unless-stopped
+    # 2GB 서버에서 mysql, app과 메모리를 나눠 쓴다. 한도를 넘으면 이 컨테이너만 재시작되고 mysql과 app은 살아 있다.
+    # 값은 실측 전의 잠정값이다. 배포 후 `docker stats`로 실제 사용량을 보고 조정한다.
+    mem_limit: ${DETECT_MEM_LIMIT:-768m}
     # 포트를 게시하지 않는다(인증이 없으므로 compose 내부망의 app에서만 호출). 열어야 한다면 앞단에서 접근을 제한할 것.
     environment:
       # 받을 가중치를 고정한다(모델 저장소 커밋 해시와 onnx/model.onnx의 sha256, 2026-08-12 커밋). 평가(#35)로 모델을 정하면 이 값을 갱신한다.
       DETECT_MODEL_REVISION: ${DETECT_MODEL_REVISION:-ac6ee457bea904a373065754107451793b56db00}
       DETECT_MODEL_SHA256: ${DETECT_MODEL_SHA256:-a42c7d740fbb345ba9a26d469b22f301d73089ce3c6da993877ed2b6965a8ba1}
+      # 1 vCPU 서버에 맞춘 값(앱 기본값은 2/2). 한 번에 한 장씩 처리해 메모리와 CPU 경합을 줄인다.
+      DETECT_THREADS: ${DETECT_THREADS:-1}
+      DETECT_MAX_CONCURRENCY: ${DETECT_MAX_CONCURRENCY:-1}
     volumes:
       - detect-model-cache:/models
     healthcheck:

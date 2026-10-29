@@ -20,6 +20,7 @@ concurrency:
 
 env:
   IMAGE: ghcr.io/somaus/signal-server
+  DETECT_IMAGE: ghcr.io/somaus/signal-detect
 
 jobs:
   test:
@@ -78,6 +79,18 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # 딥페이크 탐지 추론 서비스(detect-lab). 서버에서 빌드하지 않고 여기서 만들어 GHCR에 올린다.
+      - name: 탐지 서비스 이미지 빌드 (main이면 push)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./detect-lab
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.DETECT_IMAGE }}:${{ github.sha }}
+            ${{ env.DETECT_IMAGE }}:main
+          cache-from: type=gha,scope=detect
+          cache-to: type=gha,mode=max,scope=detect
+
   deploy:
     name: 배포
     needs: build
@@ -106,6 +119,10 @@ jobs:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           APP_IMAGE: ${{ env.IMAGE }}:${{ github.sha }}
+          DETECT_IMAGE: ${{ env.DETECT_IMAGE }}:${{ github.sha }}
+          # 탐지 방식. 저장소 변수 DEEPFAKE_DETECTION_MODE(Settings > Variables > Actions)가 있으면 그 값을 쓰고, 없으면 llm.
+          # 평가(#33, #35)로 기준선을 넘는 걸 확인한 뒤 변수를 http로 만들어 켠다. llm이면 detect를 띄우지 않고 기존 비전 LLM 탐지로 배포한다.
+          DETECTION_MODE: ${{ vars.DEEPFAKE_DETECTION_MODE || 'llm' }}
           DEPLOY_SHA: ${{ github.sha }}
           RUN_SCHEMA_UPDATE: ${{ inputs.run_schema_update || false }}
         run: |
@@ -117,6 +134,8 @@ jobs:
                && APP_IMAGE='$APP_IMAGE' \
                   GHCR_USER='$GHCR_USER' \
                   GHCR_TOKEN='$GHCR_TOKEN' \
+                  DETECT_IMAGE='$DETECT_IMAGE' \
+                  DEEPFAKE_DETECTION_MODE='$DETECTION_MODE' \
                   RUN_SCHEMA_UPDATE='$RUN_SCHEMA_UPDATE' \
                   bash scripts/remote-deploy.sh"
 
@@ -136,4 +155,5 @@ jobs:
             echo "- 이미지: \`${{ env.IMAGE }}:${{ github.sha }}\`"
             echo "- 공개 URL: https://signal.https.gsmsv.site"
             echo "- 스키마 반영: \`${{ inputs.run_schema_update || false }}\`"
+            echo "- 탐지 방식 요청값: \`${{ vars.DEEPFAKE_DETECTION_MODE || 'llm' }}\` (http를 요청했는데 탐지 서비스가 준비되지 않으면 서버가 llm으로 배포하며, 이때 실행 요약에 경고가 남는다)"
           } >> "$GITHUB_STEP_SUMMARY"
