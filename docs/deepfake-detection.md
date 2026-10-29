@@ -80,6 +80,22 @@ Signal 서버 ── mode=llm  ──▶ LlmDeepfakeDetector ──▶ 비전 LL
 - 응답 필드: `band`, `assessmentBasis`(`MODEL` | `PROVENANCE`), `undeterminedReason`, `modelName`, `modelVersion`(가중치 해시 포함), `provenanceSignals`. 비전 LLM(`mode=llm`)과 이전 기록은 새 필드가 비어 있다.
 - **점수 숫자는 등급이 점수에서 나왔을 때만** 준다. `UNDETERMINED`이거나 `assessmentBasis=PROVENANCE`이면 `verdict`, `confidence`, `riskScore`가 `null`이다(등급과 모순되는 숫자가 보이지 않게). 하위 호환용 `verdict`는 LOW→REAL, UNCERTAIN→SUSPICIOUS, HIGH→FAKE이고 판단 불가에는 없다. 화면은 `band`를 기준으로 그리고 `riskScore`를 퍼센트로 보여 주지 않는 것을 권장한다.
 
+### 화면에 보이는 단계와 점수 구간
+
+`mode=http`에서는 등급과 화면 색이 아래 구간으로 고정된다. 점수(`riskScore`)는 모델이 낸 "가짜일 확률"에 100을 곱해 반올림한 값이다.
+
+| 화면 | 등급(`band`) | 점수 구간 | 그 밖의 조건 |
+|---|---|---|---|
+| 초록 "합성 가능성 낮음" | `LOW` | 0~9 | AI 편집 표시(`AI_EDIT_DECLARED`)가 있으면 `UNCERTAIN`으로 올린다 |
+| 노랑 "불확실" | `UNCERTAIN` | 10~70 | |
+| 빨강 "합성 가능성 높음" | `HIGH` | 71~100 | 점수와 무관하게 강한 출처 신호(생성 도구 기록, AI 생성 표시)가 있어도 `HIGH` |
+| 회색 "판단 불가" | `UNDETERMINED` | 점수 없음 | 짧은 변이 256px 미만 |
+
+- 100점은 모델 확률이 99.5% 이상일 때만 나온다. "합성 확정"이라는 뜻이 아니다.
+- 출처 신호로 `HIGH`가 된 경우와 `UNDETERMINED`에는 점수가 없다(`riskScore=null`). 화면은 숫자 대신 `-`를 보여준다.
+- 경계값은 `deepfake-detection.bands.*` 설정이 정한다(기본 `low-below=10`, `high-above=70`). 값을 바꾸면 이 표도 같이 고친다.
+- `mode=llm`(비전 LLM)에서는 이 구간이 적용되지 않는다. LLM이 `verdict`와 `riskScore`를 함께 내놓고, `verdict`가 없을 때만 서버가 30 미만 REAL, 30~70 SUSPICIOUS, 70 초과 FAKE로 정한다. 같은 점수가 다른 단계로 나올 수 있어서 구간을 보장하지 않는다.
+
 ### 출처 신호 (결정론적)
 
 `ProvenanceSignalExtractor`가 파일에서 직접 읽는다. 모델을 쓰지 않는다.
