@@ -4,7 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.signal.domain.agency.entity.Agency;
 import com.signal.domain.agency.entity.AgencySituationType;
+import com.signal.domain.agency.i18n.AgencyTexts;
 import com.signal.domain.chat.guidance.AgencyCatalog;
+import com.signal.global.i18n.ResponseLanguage;
 import java.util.List;
 import java.util.Set;
 import javax.sql.DataSource;
@@ -133,8 +135,42 @@ class AgencyDataSqlIntegrationTest {
                 .doesNotContain("1393", "182");
     }
 
+    @Test
+    void 시드된_기관의_안내_문구는_모든_지원_언어로_번역돼_있다() {
+        // 시드에 새 기관·문구를 추가하고 AgencyTexts에 번역을 빼먹으면 해당 언어에서 한국어가 그대로 나간다.
+        for (ResponseLanguage language : List.of(ResponseLanguage.EN, ResponseLanguage.JA, ResponseLanguage.ZH_CN)) {
+            for (Agency agency : agencyRepository.findAll()) {
+                assertThat(AgencyTexts.name(agency.getName(), language))
+                        .as("%s 기관명(%s)", agency.getName(), language).isNotEqualTo(agency.getName());
+                assertThat(AgencyTexts.availableHours(agency.getAvailableHours(), language))
+                        .as("%s 운영시간(%s)", agency.getName(), language).isNotEqualTo(agency.getAvailableHours());
+                for (String action : agency.getSupportedActions()) {
+                    assertThat(AgencyTexts.supportedActions(List.of(action), language))
+                            .as("%s 지원 내용 %s(%s)", agency.getName(), action, language).doesNotContain(action);
+                }
+            }
+        }
+    }
+
+    @Test
+    void V4_마이그레이션은_옛_운영시간만_정정하고_직접_고친_값은_덮어쓰지_않는다() {
+        jdbcTemplate.update("UPDATE agencies SET available_hours = '평일 09:00~18:00 (야간·휴일 자동응답)' WHERE id = 1");
+        jdbcTemplate.update("UPDATE agencies SET available_hours = '직접 수정한 시간' WHERE id = 4");
+
+        runMigration("V4__fix_digital_sex_crime_center_hours.sql");
+        runMigration("V4__fix_digital_sex_crime_center_hours.sql");
+
+        assertThat(jdbcTemplate.queryForObject("SELECT available_hours FROM agencies WHERE id = 1", String.class))
+                .isEqualTo("평일 08:00~22:00, 주말·공휴일 09:00~18:00");
+        assertThat(jdbcTemplate.queryForObject("SELECT available_hours FROM agencies WHERE id = 4", String.class))
+                .isEqualTo("직접 수정한 시간");
+    }
+
     private void runMigration() {
-        new ResourceDatabasePopulator(new ClassPathResource("db/migration/V3__fix_agency_seed_numbers.sql"))
-                .execute(dataSource);
+        runMigration("V3__fix_agency_seed_numbers.sql");
+    }
+
+    private void runMigration(String file) {
+        new ResourceDatabasePopulator(new ClassPathResource("db/migration/" + file)).execute(dataSource);
     }
 }

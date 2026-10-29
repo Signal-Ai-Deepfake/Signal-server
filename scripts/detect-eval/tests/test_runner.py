@@ -96,6 +96,12 @@ class _FakeServer(BaseHTTPRequestHandler):
             self._json(200, {"status": "FAILED", "failureReason": "NO_FACE_DETECTED"})
         elif value == 254:
             self._json(200, {"status": "COMPLETED", "riskScore": 50, "fallbackUsed": True})
+        elif value == 253:
+            self._json(200, {"status": "COMPLETED", "band": "UNDETERMINED", "undeterminedReason": "LOW_RESOLUTION",
+                             "assessmentBasis": "MODEL", "riskScore": None, "fallbackUsed": False})
+        elif value == 252:
+            self._json(200, {"status": "COMPLETED", "band": "HIGH", "assessmentBasis": "PROVENANCE",
+                             "riskScore": None, "fallbackUsed": False})
         else:
             self._json(200, {"status": "COMPLETED", "riskScore": value, "fallbackUsed": False})
 
@@ -172,6 +178,46 @@ class EndToEndTest(unittest.TestCase):
             res = ServerDetector(self.base, timeout=10, poll_interval=0.01).detect(str(p))
             self.assertIsNone(res.score)
             self.assertEqual(res.error, "FALLBACK")
+
+    def test_판단_불가_응답은_실패가_아니라_점수_없는_정상_응답(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "x.png"
+            p.write_bytes(bytes([253]) + b"x")
+            res = ServerDetector(self.base, timeout=10, poll_interval=0.01).detect(str(p))
+            self.assertIsNone(res.score)
+            self.assertIsNone(res.error)
+            self.assertEqual(res.outcome, "UNDETERMINED:LOW_RESOLUTION")
+
+    def test_출처_흔적으로_정한_등급도_점수_없는_정상_응답(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "x.png"
+            p.write_bytes(bytes([252]) + b"x")
+            res = ServerDetector(self.base, timeout=10, poll_interval=0.01).detect(str(p))
+            self.assertIsNone(res.score)
+            self.assertIsNone(res.error)
+            self.assertEqual(res.outcome, "PROVENANCE")
+
+    def test_riskScore가_없는_일반_응답은_여전히_실패(self):
+        # band/assessmentBasis 어느 쪽도 점수 없음을 설명하지 않으면 서버 응답 이상으로 본다.
+        items = [manifest_mod.Item("r", 0)]
+        report = run_eval.evaluate(items, [Result(error="COMPLETED인데 riskScore가 없습니다")], 0.5)
+        self.assertEqual(report["failed"]["count"], 1)
+
+    def test_판단_불가와_출처_흔적은_실패율과_지표에_섞이지_않는다(self):
+        items = [manifest_mod.Item("r1", 0), manifest_mod.Item("r2", 0), manifest_mod.Item("f1", 1, generator="g"),
+                 manifest_mod.Item("f2", 1, generator="g"), manifest_mod.Item("f3", 1, generator="g"),
+                 manifest_mod.Item("r3", 0)]
+        results = [Result(score=0.1), Result(outcome="UNDETERMINED:LOW_RESOLUTION"), Result(score=0.9),
+                   Result(outcome="PROVENANCE"), Result(error="FALLBACK"), Result(outcome="PROVENANCE")]
+        report = run_eval.evaluate(items, results, 0.5)
+        self.assertEqual(report["failed"]["count"], 1)
+        self.assertEqual(report["undetermined"]["count"], 1)
+        self.assertEqual(report["undetermined"]["reasons"], {"LOW_RESOLUTION": 1})
+        self.assertEqual(report["undetermined"]["by_label"], {"real": 1})
+        self.assertEqual(report["provenance"]["count"], 2)
+        self.assertEqual(report["provenance"]["by_label"], {"fake": 1, "real": 1})
+        self.assertEqual(report["overall"]["n_real"], 1)
+        self.assertEqual(report["overall"]["n_fake"], 1)
 
     def test_폴백은_실패_이유로_리포트에_드러난다(self):
         items = [manifest_mod.Item("r", 0), manifest_mod.Item("f", 1, generator="g")]

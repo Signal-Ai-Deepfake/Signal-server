@@ -1,6 +1,8 @@
 package com.signal.domain.agency.dto.response;
 
 import com.signal.domain.agency.entity.Agency;
+import com.signal.domain.agency.i18n.AgencyTexts;
+import com.signal.global.i18n.ResponseLanguage;
 import java.util.List;
 
 public record AgencyResponse(
@@ -12,13 +14,13 @@ public record AgencyResponse(
         List<String> supportedActions
 ) {
 
-    public static AgencyResponse from(Agency agency) {
+    public static AgencyResponse from(Agency agency, ResponseLanguage language) {
         return new AgencyResponse(
                 agency.getId(),
-                agency.getName(),
+                AgencyTexts.name(agency.getName(), language),
                 agency.getPhone(),
                 agency.getWebsite(),
-                agency.getAvailableHours(),
-                agency.getSupportedActions());
+                AgencyTexts.availableHours(agency.getAvailableHours(), language),
+                AgencyTexts.supportedActions(agency.getSupportedActions(), language));
     }
 }

@@ -20,11 +20,12 @@ def main(paths):
         print(__doc__)
         return 2
     reports = [(Path(p).stem, json.loads(Path(p).read_text(encoding="utf-8"))) for p in paths]
-    header = ["탐지기", "n", "실패", "AUC", "오탐률", "미탐률", "TPR@FPR1%", "TPR@FPR5%", "지연p50(ms)", "임계값"]
+    header = ["탐지기", "n", "실패", "판단불가", "AUC", "오탐률", "미탐률", "TPR@FPR1%", "TPR@FPR5%", "지연p50(ms)", "임계값"]
     rows = []
     for name, r in reports:
         o = r.get("overall") or {}
         rows.append([name, str(r.get("total")), pct(r["failed"]["rate"]),
+                     pct((r.get("undetermined") or {}).get("rate")),  # 이전 형식의 리포트에는 없다
                      "-" if o.get("auc") is None else f"{o['auc']:.3f}", pct(o.get("fpr")), pct(o.get("fnr")),
                      pct(o.get("tpr_at_fpr_1")), pct(o.get("tpr_at_fpr_5")),
                      "-" if r["latency_ms"]["p50"] is None else f"{r['latency_ms']['p50']:.0f}", str(r["threshold"])])

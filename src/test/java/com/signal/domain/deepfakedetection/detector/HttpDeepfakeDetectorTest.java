@@ -3,6 +3,9 @@ package com.signal.domain.deepfakedetection.detector;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
@@ -14,11 +17,15 @@ import static org.springframework.test.web.client.response.MockRestResponseCreat
 
 import com.signal.domain.deepfakedetection.entity.DeepfakeDetection;
 import com.signal.domain.deepfakedetection.entity.DeepfakeDetectionStatus;
+import com.signal.domain.deepfakedetection.entity.DetectionBand;
+import com.signal.domain.deepfakedetection.entity.Evidence;
 import com.signal.domain.deepfakedetection.entity.DetectionFailureReason;
 import com.signal.domain.deepfakedetection.entity.Verdict;
 import com.signal.domain.deepfakedetection.repository.DeepfakeDetectionRepository;
 import com.signal.global.file.FileStorage;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -69,7 +76,7 @@ class HttpDeepfakeDetectorTest {
     }
 
     private static String scoreBody(String score) {
-        return "{\"score\":" + score + ",\"model\":\"cf\",\"modelVersion\":\"onnx-fp32+abc\",\"width\":300,\"height\":200}";
+        return "{\"score\":" + score + ",\"model\":\"cf\",\"modelVersion\":\"onnx-fp32+abc\",\"width\":1024,\"height\":768}";
     }
 
     @Test
@@ -86,6 +93,10 @@ class HttpDeepfakeDetectorTest {
         server.verify();
         assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.COMPLETED);
         assertThat(detection.getVerdict()).isEqualTo(Verdict.FAKE);
+        assertThat(detection.getBand()).isEqualTo("HIGH");
+        assertThat(detection.getAssessmentBasis()).isEqualTo("MODEL");
+        assertThat(detection.getModelName()).isEqualTo("cf");
+        assertThat(detection.getModelVersion()).isEqualTo("onnx-fp32+abc");
         assertThat(detection.getRiskScore()).isEqualTo(91);
         assertThat(detection.getConfidence()).isEqualTo(0.91);
         assertThat(detection.getEvidences()).isEmpty();
@@ -190,5 +201,148 @@ class HttpDeepfakeDetectorTest {
         verifyNoInteractions(fileStorage);
         assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.FAILED);
         assertThat(detection.getFailureReason()).isEqualTo(DetectionFailureReason.VIDEO_NOT_SUPPORTED);
+    }
+
+    private HttpDeepfakeDetector detectorWith(DeepfakeExplainer explainer) {
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://detect:8000");
+        server = MockRestServiceServer.bindTo(builder).build();
+        return new HttpDeepfakeDetector(fileStorage, deepfakeDetectionRepository, builder.build(),
+                new DetectionBandPolicy(30, 70, 256), explainer);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "0.10, LOW", "0.29, LOW", "0.30, UNCERTAIN", "0.50, UNCERTAIN", "0.70, UNCERTAIN", "0.71, HIGH", "0.99, HIGH"
+    })
+    void 점수는_등급으로_바뀐다(String score, String band) {
+        DeepfakeDetection detection = stubDetection();
+        stubFileLoadAndStore();
+        server.expect(requestTo(DETECT_URL)).andRespond(withSuccess(scoreBody(score), MediaType.APPLICATION_JSON));
+
+        detector.detect(1L, FILE_URL, false);
+
+        assertThat(detection.getBand()).isEqualTo(band);
+        assertThat(detection.getAssessmentBasis()).isEqualTo("MODEL");
+        assertThat(detection.getUndeterminedReason()).isNull();
+    }
+
+    @Test
+    void 이미지가_너무_작으면_판단_불가이고_점수_숫자를_내지_않는다() {
+        DeepfakeDetection detection = stubDetection();
+        stubFileLoadAndStore();
+        String smallImage = "{\"score\":0.95,\"model\":\"cf\",\"modelVersion\":\"v\",\"width\":200,\"height\":300}";
+        server.expect(requestTo(DETECT_URL)).andRespond(withSuccess(smallImage, MediaType.APPLICATION_JSON));
+
+        detector.detect(1L, FILE_URL, false);
+
+        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.COMPLETED);
+        assertThat(detection.getBand()).isEqualTo("UNDETERMINED");
+        assertThat(detection.getUndeterminedReason()).isEqualTo("LOW_RESOLUTION");
+        assertThat(detection.getVerdict()).isNull();
+        assertThat(detection.getRiskScore()).isNull();
+        assertThat(detection.getConfidence()).isNull();
+        assertThat(detection.getModelVersion()).isEqualTo("v");
+    }
+
+    @Test
+    void 크기를_모르면_해상도로_판단_불가로_만들지_않는다() {
+        DeepfakeDetection detection = stubDetection();
+        stubFileLoadAndStore();
+        server.expect(requestTo(DETECT_URL))
+                .andRespond(withSuccess("{\"score\":0.10,\"model\":\"cf\"}", MediaType.APPLICATION_JSON));
+
+        detector.detect(1L, FILE_URL, false);
+
+        assertThat(detection.getBand()).isEqualTo("LOW");
+    }
+
+    @Test
+    void 생성_도구의_흔적이_있으면_점수가_낮아도_높음이고_점수_숫자를_내지_않는다() {
+        DeepfakeDetection detection = stubDetection();
+        byte[] marked = ("0123456789abcdef http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia")
+                .getBytes(StandardCharsets.ISO_8859_1);
+        when(fileStorage.load(FILE_URL)).thenReturn(marked);
+        when(fileStorage.store(any(byte[].class), eq("highlighted.png"), eq("deepfake-detections")))
+                .thenReturn("/uploads/deepfake-detections/highlighted.png");
+        server.expect(requestTo(DETECT_URL)).andRespond(withSuccess(scoreBody("0.05"), MediaType.APPLICATION_JSON));
+
+        detector.detect(1L, FILE_URL, false);
+
+        assertThat(detection.getBand()).isEqualTo("HIGH");
+        assertThat(detection.getAssessmentBasis()).isEqualTo("PROVENANCE");
+        assertThat(detection.getProvenanceSignals()).containsExactly("AI_SOURCE_DECLARED");
+        assertThat(detection.getVerdict()).isEqualTo(Verdict.FAKE);
+        assertThat(detection.getRiskScore()).isNull();
+        assertThat(detection.getConfidence()).isNull();
+    }
+
+    @Test
+    void 일부를_AI로_편집했다는_표시만_있으면_높음이_아니라_불확실이고_점수_숫자를_내지_않는다() {
+        DeepfakeDetection detection = stubDetection();
+        byte[] edited = ("0123456789abcdef http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia")
+                .getBytes(StandardCharsets.ISO_8859_1);
+        when(fileStorage.load(FILE_URL)).thenReturn(edited);
+        when(fileStorage.store(any(byte[].class), eq("highlighted.png"), eq("deepfake-detections")))
+                .thenReturn("/uploads/deepfake-detections/highlighted.png");
+        server.expect(requestTo(DETECT_URL)).andRespond(withSuccess(scoreBody("0.05"), MediaType.APPLICATION_JSON));
+
+        detector.detect(1L, FILE_URL, false);
+
+        assertThat(detection.getBand()).isEqualTo("UNCERTAIN");
+        assertThat(detection.getAssessmentBasis()).isEqualTo("PROVENANCE");
+        assertThat(detection.getProvenanceSignals()).containsExactly("AI_EDIT_DECLARED");
+        assertThat(detection.getVerdict()).isEqualTo(Verdict.SUSPICIOUS);
+        assertThat(detection.getRiskScore()).isNull();
+        assertThat(detection.getConfidence()).isNull();
+    }
+
+    @Test
+    void 설명기는_정해진_등급에_근거만_붙이고_등급을_바꾸지_못한다() {
+        DeepfakeExplainer explainer = mock(DeepfakeExplainer.class);
+        Evidence evidence = Evidence.builder().type("OTHER").description("경계가 흐릿해 보일 수 있습니다.")
+                .region(com.signal.domain.deepfakedetection.entity.Region.builder().x(1).y(2).width(3).height(4).build())
+                .build();
+        when(explainer.explain(any(byte[].class), eq("image/jpeg"), eq(DetectionBand.UNCERTAIN), eq(1024), eq(768)))
+                .thenReturn(List.of(evidence));
+        HttpDeepfakeDetector withExplainer = detectorWith(explainer);
+        DeepfakeDetection detection = stubDetection();
+        stubFileLoadAndStore();
+        server.expect(requestTo(DETECT_URL)).andRespond(withSuccess(scoreBody("0.50"), MediaType.APPLICATION_JSON));
+
+        withExplainer.detect(1L, FILE_URL, false);
+
+        assertThat(detection.getBand()).isEqualTo("UNCERTAIN");
+        assertThat(detection.getEvidences()).containsExactly(evidence);
+    }
+
+    @Test
+    void 설명기가_실패해도_탐지_결과는_그대로_나간다() {
+        DeepfakeExplainer explainer = mock(DeepfakeExplainer.class);
+        when(explainer.explain(any(byte[].class), any(), any(DetectionBand.class), eq(1024), eq(768)))
+                .thenThrow(new IllegalStateException("LLM 오류"));
+        HttpDeepfakeDetector withExplainer = detectorWith(explainer);
+        DeepfakeDetection detection = stubDetection();
+        stubFileLoadAndStore();
+        server.expect(requestTo(DETECT_URL)).andRespond(withSuccess(scoreBody("0.90"), MediaType.APPLICATION_JSON));
+
+        withExplainer.detect(1L, FILE_URL, false);
+
+        assertThat(detection.getStatus()).isEqualTo(DeepfakeDetectionStatus.COMPLETED);
+        assertThat(detection.getBand()).isEqualTo("HIGH");
+        assertThat(detection.getEvidences()).isEmpty();
+    }
+
+    @Test
+    void 분석에_실패하면_설명기를_부르지_않는다() {
+        DeepfakeExplainer explainer = mock(DeepfakeExplainer.class);
+        HttpDeepfakeDetector withExplainer = detectorWith(explainer);
+        stubDetection();
+        when(fileStorage.load(FILE_URL)).thenReturn(new byte[]{1, 2, 3});
+        server.expect(requestTo(DETECT_URL)).andRespond(withServerError());
+
+        withExplainer.detect(1L, FILE_URL, false);
+
+        verify(explainer, never()).explain(any(), any(), any(), org.mockito.ArgumentMatchers.anyInt(),
+                org.mockito.ArgumentMatchers.anyInt());
     }
 }
