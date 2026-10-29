@@ -98,7 +98,7 @@ class _FakeServer(BaseHTTPRequestHandler):
             self._json(200, {"status": "COMPLETED", "riskScore": 50, "fallbackUsed": True})
         elif value == 253:
             self._json(200, {"status": "COMPLETED", "band": "UNDETERMINED", "undeterminedReason": "LOW_RESOLUTION",
-                             "assessmentBasis": "PROVENANCE", "riskScore": None, "fallbackUsed": False})
+                             "assessmentBasis": "MODEL", "riskScore": None, "fallbackUsed": False})
         elif value == 252:
             self._json(200, {"status": "COMPLETED", "band": "HIGH", "assessmentBasis": "PROVENANCE",
                              "riskScore": None, "fallbackUsed": False})

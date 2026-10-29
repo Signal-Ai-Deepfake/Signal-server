@@ -57,11 +57,11 @@ Signal 서버 ── mode=llm  ──▶ LlmDeepfakeDetector ──▶ 비전 LL
 | band | 뜻 | 정하는 기준 |
 |---|---|---|
 | `LOW` | 합성 가능성이 낮음(진짜라는 보증은 아님) | 점수 < `low-below` |
-| `UNCERTAIN` | 점수가 중간이라 어느 쪽이라고 말하기 어려움 | `low-below` ≤ 점수 ≤ `high-above` |
+| `UNCERTAIN` | 점수가 중간이라 어느 쪽이라고 말하기 어려움 | `low-below` ≤ 점수 ≤ `high-above`, 또는 점수는 낮지만 AI 편집 표시(`AI_EDIT_DECLARED`)가 있음 |
 | `HIGH` | 합성 가능성이 높음 | 점수 > `high-above`, 또는 강한 출처 신호 |
 | `UNDETERMINED` | 판단 불가 | 짧은 변이 `min-short-edge-px`보다 작음(`undeterminedReason=LOW_RESOLUTION`) |
 
-- 등급은 `DetectionBandPolicy`가 정한다. 순서는 강한 출처 신호 → 해상도 → 점수이며, LLM은 관여하지 않는다.
+- 등급은 `DetectionBandPolicy`가 정한다. 순서는 강한 출처 신호 → 해상도 → 점수 → (점수가 낮을 때) AI 편집 표시이며, LLM은 관여하지 않는다.
 - `deepfake-detection.bands.low-below`(30), `high-above`(70), `min-short-edge-px`(256)은 **잠정값**이다. 앞의 둘은 기존 verdict 구간을 그대로 옮긴 것이고, 평가 세트(#35)로 측정해서 정한다. 그때까지는 이 값으로 정확도를 말하지 않는다.
 - 압축이 심한 사진을 판단 불가로 보내는 규칙은 아직 없다. 어떤 신호(JPEG 품질, 메신저 전송 흔적 등)가 믿을 만한지 평가에서 확인한 뒤에 넣는다.
 - 응답 필드: `band`, `assessmentBasis`(`MODEL` | `PROVENANCE`), `undeterminedReason`, `modelName`, `modelVersion`(가중치 해시 포함), `provenanceSignals`. 비전 LLM(`mode=llm`)과 이전 기록은 새 필드가 비어 있다.
@@ -73,13 +73,15 @@ Signal 서버 ── mode=llm  ──▶ LlmDeepfakeDetector ──▶ 비전 LL
 
 | 신호 | 찾는 것 | 등급에 쓰는가 |
 |---|---|---|
-| `GENERATOR_METADATA` | PNG 텍스트 청크(Stable Diffusion WebUI의 `parameters`, ComfyUI의 `prompt`·`workflow`, InvokeAI), 파일 앞부분의 알려진 생성 도구 이름(Midjourney, DALL-E, Stable Diffusion, ComfyUI, NovelAI, Adobe Firefly, Leonardo.Ai) | 예(강한 근거 → `HIGH`) |
-| `AI_SOURCE_DECLARED` | IPTC `digitalSourceType`이 AI 생성(`trainedAlgorithmicMedia` 등)임을 표시 | 예(강한 근거 → `HIGH`) |
+| `GENERATOR_METADATA` | PNG 텍스트 청크(Stable Diffusion WebUI의 `parameters`, ComfyUI의 `prompt`·`workflow`, InvokeAI), XMP `CreatorTool`·C2PA `softwareAgent` 필드에 적힌 생성 전용 도구 이름(Midjourney, DALL-E, Stable Diffusion, ComfyUI, NovelAI, Leonardo.Ai) | 예(강한 근거 → `HIGH`) |
+| `AI_SOURCE_DECLARED` | IPTC `digitalSourceType`이 `trainedAlgorithmicMedia`(AI가 생성)임을 표시 | 예(강한 근거 → `HIGH`) |
+| `AI_EDIT_DECLARED` | IPTC `digitalSourceType`이 `compositeWithTrainedAlgorithmicMedia`·`compositeSynthetic`(일부를 AI로 합성·편집), 또는 제작 도구 필드에 Adobe Firefly | 아니오(점수가 `LOW`일 때만 `UNCERTAIN`으로 올림, `assessmentBasis=PROVENANCE`) |
 | `C2PA_MANIFEST` | C2PA(JUMBF) 콘텐츠 자격 증명이 포함됨 | 아니오(있다는 사실만 알림) |
 
+- 합성(composite) 값과 Adobe Firefly는 실제로 찍은 사진에 생성형 채우기를 쓴 경우에도 남는다. 이미지 전체가 합성이라는 근거가 아니므로 `HIGH`로 올리지 않는다. 다만 일부가 AI로 만들어졌으니 모델이 낮은 점수를 줘도 "합성 가능성 낮음"이라고 하지 않고 `UNCERTAIN`으로 둔다. `algorithmicMedia`(학습 모델 없이 알고리즘으로 만든 이미지)는 AI 생성 표시로 보지 않는다.
 - C2PA는 **서명을 검증하지 않는다.** 매니페스트가 있다는 것과 거기에 AI 생성 표시(`trainedAlgorithmicMedia`)가 있다는 것만 읽는다. 서명 검증은 별도 작업이다.
-- 메타데이터는 스크린샷, 재저장, 메신저 전송에서 사라진다. 그래서 **신호가 없다고 진짜로 보지 않는다.** 신호가 있을 때만 근거로 쓰고, 이 경우 점수가 낮아도 `HIGH`(`assessmentBasis=PROVENANCE`)가 된다.
-- 이름 검색은 휴리스틱이다. 오탐 가능성이 낮은 구체적인 문자열만 쓰며, 목록을 늘릴 때는 평가 세트의 진짜 이미지에서 걸리는지 먼저 확인한다.
+- 메타데이터는 스크린샷, 재저장, 메신저 전송에서 사라진다. 그래서 **신호가 없다고 진짜로 보지 않는다.** 신호가 있을 때만 근거로 쓰고, 강한 신호가 있으면 점수가 낮아도 `HIGH`(`assessmentBasis=PROVENANCE`)가 된다.
+- 생성 도구 이름은 파일 전체에서 찾지 않고 `CreatorTool`, `softwareAgent` 필드 뒤 200자 안에서만 찾는다. 캡션이나 설명문에 도구 이름이 적혀 있다고 신호로 보지 않기 위해서다. 한계: XMP를 파서로 읽지 않는 문자열 검색이라 필드 이름과 값이 멀리 떨어진 형식은 놓치고(놓치면 신호 없음), EXIF `Software` 태그(바이너리)는 읽지 않는다. 목록을 늘릴 때는 평가 세트의 진짜 이미지에서 걸리는지 먼저 확인한다.
 
 ### LLM은 설명만 한다
 
