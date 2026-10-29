@@ -25,11 +25,14 @@ public class Detection {
     @Column(nullable = false)
     private Long monitoringId;
 
-    @Column(nullable = false)
+    @Column(nullable = false, length = 2048)
     private String sourceUrl;
 
-    @Column(nullable = false)
+    @Column(length = 2048)
     private String thumbnailUrl;
+
+    @Column(length = 500)
+    private String title;
 
     @Column(nullable = false)
     private double similarity;
@@ -38,10 +41,11 @@ public class Detection {
     private LocalDateTime detectedAt;
 
     @Builder
-    public Detection(Long monitoringId, String sourceUrl, String thumbnailUrl, double similarity) {
+    public Detection(Long monitoringId, String sourceUrl, String thumbnailUrl, String title, double similarity) {
         this.monitoringId = monitoringId;
         this.sourceUrl = sourceUrl;
         this.thumbnailUrl = thumbnailUrl;
+        this.title = title;
         this.similarity = similarity;
         this.detectedAt = LocalDateTime.now();
     }
