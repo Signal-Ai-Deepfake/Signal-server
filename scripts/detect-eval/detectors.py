@@ -102,8 +102,11 @@ class ServerDetector:
                     risk = data.get("riskScore")
                     if risk is None:
                         raise RuntimeError("COMPLETED인데 riskScore가 없습니다")
+                    if data.get("fallbackUsed"):
+                        # 서버가 룰 기반 폴백으로 낸 점수는 탐지기의 점수가 아니다. 지표에 넣지 않고 실패 이유(FALLBACK)로 센다.
+                        return Result(error="FALLBACK", model="signal-server",
+                                      latency_ms=(time.monotonic() - started) * 1000)
                     return Result(score=float(risk) / 100.0, model="signal-server",
-                                  model_version="fallback" if data.get("fallbackUsed") else None,
                                   latency_ms=(time.monotonic() - started) * 1000)
                 if status == "FAILED":
                     return Result(error=f"FAILED:{data.get('failureReason')}",

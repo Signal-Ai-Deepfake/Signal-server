@@ -13,7 +13,8 @@
    `python3 scripts/detect-eval/make_variants.py --manifest eval/manifest.csv --out-dir eval/variants --out-manifest eval/manifest.with-variants.csv`
 4. **측정.** 탐지기마다 같은 매니페스트로 돌려 리포트를 저장한다.
    ```bash
-   # 현재 LLM 탐지(기준선): 로컬/개발 서버에서만. 이미지마다 새 익명 ID를 쓴다.
+   # 현재 LLM 탐지(기준선): 로컬/개발 서버에서만. 이미지마다 새 익명 ID를 써서 익명 한도를 우회하므로,
+   # localhost가 아닌 주소는 --allow-remote를 붙여야 실행된다(운영 서버에는 쓰지 말 것).
    python3 scripts/detect-eval/run_eval.py --manifest eval/manifest.with-variants.csv \
        --detector server --base-url http://localhost:8080 --report reports/baseline-llm.json
 
@@ -31,6 +32,9 @@
 - **실패**(분석하지 못함)는 지표에서 빼고 따로 센다. 실패가 많은 탐지기는 지표가 좋아 보일 수 있으니 실패율을 함께 본다.
 - **판단 보류 구간**(`--abstain-low/--abstain-high`)에 든 점수는 지표에서 빼고 보류 수로 센다. 서비스에서 "판단 불가"를 둘 구간을
   정할 때 임계값을 바꿔 가며 오탐·미탐이 얼마나 줄고 보류가 얼마나 느는지 본다.
+- **overall(전체) 지표는 원본만으로 계산한다.** 변형은 같은 원본의 복사본이라 서로 독립이 아니고 n을 부풀리기 때문이다. 변형은 "변형별"과 "원본 대비 점수 변화"에서만 본다. 탐지기를 비교하는 표(`compare_reports.py`)도 원본 기준이다.
+- 서버가 룰 기반 폴백으로 낸 점수(`fallbackUsed`)는 탐지기의 점수가 아니므로 지표에 넣지 않고 실패 이유 `FALLBACK`으로 센다. 기준선(LLM 탐지)을 잴 때 폴백 비율이 높으면 그 측정은 믿지 말고 다시 한다.
+- 지연(p50/p95)은 성공한 요청만으로 계산한다.
 - **원본 대비 점수 변화**는 같은 이미지의 변형이 원본과 다른 판정을 받는 비율이다. 높으면 재압축·캡처에 약하다는 뜻이다.
 
 ## 테스트
