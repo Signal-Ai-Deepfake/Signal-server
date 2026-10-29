@@ -57,6 +57,22 @@ class DetectionBandPolicyTest {
     }
 
     @Test
+    void AI_편집_표시는_높음으로_올리지_않고_낮음을_불확실로만_올린다() {
+        List<ProvenanceSignal> edited = List.of(ProvenanceSignal.AI_EDIT_DECLARED);
+
+        DetectionBandPolicy.Assessment low = policy.assess(10, 1024, 768, edited);
+        assertThat(low.band()).isEqualTo(DetectionBand.UNCERTAIN);
+        assertThat(low.basis()).isEqualTo(AssessmentBasis.PROVENANCE);
+
+        assertThat(policy.assess(50, 1024, 768, edited).band()).isEqualTo(DetectionBand.UNCERTAIN);
+        assertThat(policy.assess(50, 1024, 768, edited).basis()).isEqualTo(AssessmentBasis.MODEL);
+        assertThat(policy.assess(95, 1024, 768, edited).band()).isEqualTo(DetectionBand.HIGH);
+        assertThat(policy.assess(95, 1024, 768, edited).basis()).isEqualTo(AssessmentBasis.MODEL);
+        // 해상도 부족은 편집 표시보다 우선한다
+        assertThat(policy.assess(10, 100, 100, edited).band()).isEqualTo(DetectionBand.UNDETERMINED);
+    }
+
+    @Test
     void 출처_신호가_없다고_진짜로_보지_않는다() {
         // 점수가 높으면 신호가 없어도 높음 그대로다.
         assertThat(policy.assess(95, 1024, 768, List.of()).band()).isEqualTo(DetectionBand.HIGH);

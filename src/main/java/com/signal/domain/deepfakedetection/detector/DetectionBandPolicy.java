@@ -15,6 +15,9 @@ import org.springframework.stereotype.Component;
  * 1. 강한 출처 신호(생성 도구의 흔적)가 있으면 점수와 무관하게 HIGH (근거: PROVENANCE)
  * 2. 짧은 변이 min-short-edge-px보다 작으면 UNDETERMINED (모델은 짧은 변을 440으로 키우므로 작은 이미지는 점수를 믿기 어렵다)
  * 3. 점수가 low-below 미만이면 LOW, high-above 초과이면 HIGH, 그 사이는 UNCERTAIN
+ * 4. 3에서 LOW였더라도 AI 편집 표시(AI_EDIT_DECLARED)가 있으면 UNCERTAIN으로 올린다 (근거: PROVENANCE).
+ *    일부를 AI로 만든 이미지는 모델이 낮은 점수를 줄 수 있어 "합성 가능성 낮음"이라고 말하면 안 되고,
+ *    실제 사진에 생성형 채우기만 쓴 경우도 있어 HIGH로 올리지는 않는다.
  *
  * 임계값의 기본값(30, 70)은 기존 verdict 구간을 그대로 옮긴 잠정값이다. 평가 세트(#35)로 측정해서 정해야 하며,
  * 그때까지는 이 값을 근거로 정확도를 말하지 않는다.
@@ -54,6 +57,9 @@ public class DetectionBandPolicy {
             return new Assessment(DetectionBand.UNDETERMINED, AssessmentBasis.MODEL, UndeterminedReason.LOW_RESOLUTION);
         }
         if (riskScore < lowBelow) {
+            if (signals != null && signals.contains(ProvenanceSignal.AI_EDIT_DECLARED)) {
+                return new Assessment(DetectionBand.UNCERTAIN, AssessmentBasis.PROVENANCE, null);
+            }
             return new Assessment(DetectionBand.LOW, AssessmentBasis.MODEL, null);
         }
         if (riskScore > highAbove) {

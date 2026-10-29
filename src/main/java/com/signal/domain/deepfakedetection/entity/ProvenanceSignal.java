@@ -10,8 +10,14 @@ import java.util.Optional;
 public enum ProvenanceSignal {
     /** PNG 텍스트 청크나 메타데이터에 AI 생성 도구(Stable Diffusion, ComfyUI, Midjourney 등)의 기록이 있다. */
     GENERATOR_METADATA(true, "이미지 파일의 메타데이터에 AI 생성 도구의 기록이 남아 있습니다."),
-    /** IPTC digitalSourceType이 AI 생성(trainedAlgorithmicMedia 등)임을 표시한다. */
+    /** IPTC digitalSourceType이 AI 생성(trainedAlgorithmicMedia)임을 표시한다. */
     AI_SOURCE_DECLARED(true, "이미지 파일의 메타데이터가 AI로 생성된 콘텐츠임을 표시하고 있습니다."),
+    /**
+     * AI로 일부를 편집·합성했다는 표시(IPTC compositeWithTrainedAlgorithmicMedia, compositeSynthetic, Adobe Firefly 등).
+     * 실제 촬영한 사진에 생성형 채우기를 쓴 경우에도 남으므로 이미지 전체가 합성이라는 근거가 아니다.
+     * 등급을 HIGH로 올리지 않고, 모델 점수가 낮을 때 LOW로 두지 않는 정도로만 쓴다.
+     */
+    AI_EDIT_DECLARED(false, "이미지 파일의 메타데이터에 AI로 편집하거나 합성한 흔적이 있습니다."),
     /** C2PA 콘텐츠 자격 증명이 포함돼 있다. 서명 검증은 하지 않으므로 참고용이고 등급에는 쓰지 않는다. */
     C2PA_MANIFEST(false, "콘텐츠 자격 증명(C2PA) 정보가 포함돼 있습니다. 서명은 검증하지 않았습니다.");
 

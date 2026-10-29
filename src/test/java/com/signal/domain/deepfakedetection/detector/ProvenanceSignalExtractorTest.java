@@ -95,6 +95,27 @@ class ProvenanceSignalExtractorTest {
     }
 
     @Test
+    void 일부를_AI로_편집했다는_값은_강한_신호가_아니라_편집_신호() {
+        for (String value : new String[]{"compositeWithTrainedAlgorithmicMedia", "compositeSynthetic"}) {
+            byte[] file = ("padding padding padding http://cv.iptc.org/newscodes/digitalsourcetype/" + value)
+                    .getBytes(StandardCharsets.ISO_8859_1);
+
+            List<ProvenanceSignal> signals = ProvenanceSignalExtractor.extract(file);
+
+            assertThat(signals).containsExactly(ProvenanceSignal.AI_EDIT_DECLARED);
+            assertThat(ProvenanceSignalExtractor.hasStrongSignal(signals)).isFalse();
+        }
+    }
+
+    @Test
+    void 알고리즘으로_만든_이미지_표시는_AI_생성_신호가_아니다() {
+        byte[] file = "padding padding padding http://cv.iptc.org/newscodes/digitalsourcetype/algorithmicMedia"
+                .getBytes(StandardCharsets.ISO_8859_1);
+
+        assertThat(ProvenanceSignalExtractor.extract(file)).isEmpty();
+    }
+
+    @Test
     void 카메라_촬영을_뜻하는_digitalSourceType은_신호가_아니다() {
         byte[] file = ("padding padding padding padding "
                 + "http://cv.iptc.org/newscodes/digitalsourcetype/digitalCapture").getBytes(StandardCharsets.ISO_8859_1);
@@ -111,6 +132,33 @@ class ProvenanceSignalExtractorTest {
     }
 
     @Test
+    void C2PA_액션의_softwareAgent에_생성_도구가_있으면_신호() {
+        byte[] file = "padding padding jumb c2pa {\"action\":\"c2pa.created\",\"softwareAgent\":{\"name\":\"ComfyUI\",\"version\":\"1\"}}"
+                .getBytes(StandardCharsets.ISO_8859_1);
+
+        assertThat(ProvenanceSignalExtractor.extract(file)).contains(ProvenanceSignal.GENERATOR_METADATA);
+    }
+
+    @Test
+    void 제작_도구_필드가_아닌_곳의_도구_이름은_신호가_아니다() {
+        byte[] caption = "padding padding <dc:description>Midjourney 스타일을 흉내 낸 그림 연습</dc:description> padding"
+                .getBytes(StandardCharsets.ISO_8859_1);
+        byte[] farAway = ("<xmp:CreatorTool>Adobe Lightroom</xmp:CreatorTool>" + " ".repeat(400) + "Midjourney")
+                .getBytes(StandardCharsets.ISO_8859_1);
+
+        assertThat(ProvenanceSignalExtractor.extract(caption)).isEmpty();
+        assertThat(ProvenanceSignalExtractor.extract(farAway)).isEmpty();
+    }
+
+    @Test
+    void Adobe_Firefly는_실제_사진_편집에도_쓰여서_편집_신호로만_본다() {
+        byte[] file = "padding padding <xmp:CreatorTool>Adobe Firefly</xmp:CreatorTool> padding"
+                .getBytes(StandardCharsets.ISO_8859_1);
+
+        assertThat(ProvenanceSignalExtractor.extract(file)).containsExactly(ProvenanceSignal.AI_EDIT_DECLARED);
+    }
+
+    @Test
     void C2PA_매니페스트는_있다는_사실만_알리고_강한_신호가_아니다() {
         byte[] file = "padding padding jumb  jumd c2pa padding padding".getBytes(StandardCharsets.ISO_8859_1);
 
@@ -124,6 +172,8 @@ class ProvenanceSignalExtractorTest {
     void 강한_신호가_하나라도_있으면_hasStrongSignal() {
         assertThat(ProvenanceSignalExtractor.hasStrongSignal(
                 List.of(ProvenanceSignal.C2PA_MANIFEST, ProvenanceSignal.GENERATOR_METADATA))).isTrue();
+        assertThat(ProvenanceSignalExtractor.hasStrongSignal(
+                List.of(ProvenanceSignal.C2PA_MANIFEST, ProvenanceSignal.AI_EDIT_DECLARED))).isFalse();
         assertThat(ProvenanceSignalExtractor.hasStrongSignal(List.of())).isFalse();
         assertThat(ProvenanceSignalExtractor.hasStrongSignal(null)).isFalse();
     }

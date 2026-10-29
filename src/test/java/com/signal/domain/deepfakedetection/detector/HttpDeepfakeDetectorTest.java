@@ -277,6 +277,26 @@ class HttpDeepfakeDetectorTest {
     }
 
     @Test
+    void 일부를_AI로_편집했다는_표시만_있으면_높음이_아니라_불확실이고_점수_숫자를_내지_않는다() {
+        DeepfakeDetection detection = stubDetection();
+        byte[] edited = ("0123456789abcdef http://cv.iptc.org/newscodes/digitalsourcetype/compositeWithTrainedAlgorithmicMedia")
+                .getBytes(StandardCharsets.ISO_8859_1);
+        when(fileStorage.load(FILE_URL)).thenReturn(edited);
+        when(fileStorage.store(any(byte[].class), eq("highlighted.png"), eq("deepfake-detections")))
+                .thenReturn("/uploads/deepfake-detections/highlighted.png");
+        server.expect(requestTo(DETECT_URL)).andRespond(withSuccess(scoreBody("0.05"), MediaType.APPLICATION_JSON));
+
+        detector.detect(1L, FILE_URL, false);
+
+        assertThat(detection.getBand()).isEqualTo("UNCERTAIN");
+        assertThat(detection.getAssessmentBasis()).isEqualTo("PROVENANCE");
+        assertThat(detection.getProvenanceSignals()).containsExactly("AI_EDIT_DECLARED");
+        assertThat(detection.getVerdict()).isEqualTo(Verdict.SUSPICIOUS);
+        assertThat(detection.getRiskScore()).isNull();
+        assertThat(detection.getConfidence()).isNull();
+    }
+
+    @Test
     void 설명기는_정해진_등급에_근거만_붙이고_등급을_바꾸지_못한다() {
         DeepfakeExplainer explainer = mock(DeepfakeExplainer.class);
         Evidence evidence = Evidence.builder().type("OTHER").description("경계가 흐릿해 보일 수 있습니다.")
