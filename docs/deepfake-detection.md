@@ -32,3 +32,25 @@
 ## 평가
 
 `scripts/detect-eval/README.md` 참고. 평가 세트에는 실제 피해자 이미지, 실존 인물 얼굴로 만든 합성 이미지, 성적 이미지를 넣지 않는다.
+
+## 구조 (#36)
+
+```
+Signal 서버 ── mode=llm  ──▶ LlmDeepfakeDetector ──▶ 비전 LLM (기본, 기존 동작)
+             └ mode=http ──▶ HttpDeepfakeDetector ──▶ detect-lab: POST /detect ──▶ ONNX 모델
+```
+
+- 모드는 `deepfake-detection.mode`(환경변수 `DEEPFAKE_DETECTION_MODE`, 기본 `llm`)로 바꾼다. 주소와 시간 제한은 `deepfake-detection.http.base-url`, `timeout-seconds`.
+- 점수(`score`, 0~1, 가짜일 확률)는 모델 출력 그대로(보정 전)다. 서버는 이를 `riskScore`(0~100)로 옮기고 기존 구간(30 미만 REAL, 70 이하 SUSPICIOUS, 초과 FAKE)으로 `verdict`를 정한다.
+  `confidence`는 모델이 고른 쪽의 확률 `max(score, 1 - score)`이다. 구간 임계값을 평가 결과로 정하고 "판단 불가"를 두는 일은 #37에서 한다.
+- 이 모델은 얼굴 검출을 하지 않아 `NO_FACE_DETECTED`를 내지 않고, 근거 영역(`evidences`)도 내지 않는다(빈 목록). 얼굴이 없는 이미지도 점수가 나온다.
+- 영상은 지원하지 않는다(`VIDEO_NOT_SUPPORTED`). 호출 실패, 시간 초과, 범위 밖 점수는 룰 기반 값으로 대체하지 않고 `FAILED`로 처리한다.
+- 서비스는 모델이 없어도 뜨며, `GET /health`가 503과 이유를 돌려준다. 자세한 실행 방법은 `detect-lab/README.md`.
+- 가중치는 커밋 해시(`DETECT_MODEL_REVISION`)로 고정해서 받고, 필요하면 `DETECT_MODEL_SHA256`으로 파일을 확인한다. 평가(#35)에서 고른 해시를 그대로 운영에 쓴다.
+- 추론 서비스는 서버가 받는 이미지 한도(100MB)와 같은 크기까지 받고, 그보다 크거나 64MP를 넘는 이미지는 413을 돌려준다. 이 경우 서버는 `AI_SERVER_ERROR`로 처리한다.
+- `/detect`에는 인증이 없다. compose는 포트를 게시하지 않으며, 외부에 열지 않는다.
+
+## 전처리 확인
+
+`detect-lab/preprocess.py`는 `transformers`의 `CLIPImageProcessor`(PIL 백엔드, 모델 카드의 `preprocessor_config.json` 값)와 크기가 다른 9종의 무작위 이미지에서
+출력이 완전히 같음(최대 차이 0)을 확인했다(transformers 5.21, Pillow 12.3). 방향 보정(EXIF 회전)은 모델 카드의 전처리에 없어 적용하지 않는다.

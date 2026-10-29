@@ -32,6 +32,8 @@ services:
       CORS_ALLOWED_ORIGINS: https://signal-web-rho.vercel.app,http://localhost:3000
       PROTECTION_MODE: ${PROTECTION_MODE:-noise}          # http로 바꾸면 protection 서비스(노이즈 삽입)를 호출
       PROTECTION_API_URL: http://protection:8000
+      DEEPFAKE_DETECTION_MODE: ${DEEPFAKE_DETECTION_MODE:-llm}   # http로 바꾸면 detect 서비스(전용 탐지 모델)를 호출
+      DEEPFAKE_DETECTION_API_URL: http://detect:8000
     volumes:
       - uploads-data:/app/uploads
 
@@ -43,7 +45,27 @@ services:
     volumes:
       - model-cache:/models
 
+  # 딥페이크 탐지 추론 서비스(전용 모델). 기본 배포에는 포함되지 않으며 `docker compose --profile detect up -d detect` 로 켠다.
+  detect:
+    profiles: ["detect"]
+    build: ./detect-lab
+    restart: unless-stopped
+    # 포트를 게시하지 않는다(인증이 없으므로 compose 내부망의 app에서만 호출). 열어야 한다면 앞단에서 접근을 제한할 것.
+    environment:
+      # 받을 가중치를 고정한다(모델 저장소 커밋 해시와 onnx/model.onnx의 sha256, 2026-08-12 커밋). 평가(#35)로 모델을 정하면 이 값을 갱신한다.
+      DETECT_MODEL_REVISION: ${DETECT_MODEL_REVISION:-ac6ee457bea904a373065754107451793b56db00}
+      DETECT_MODEL_SHA256: ${DETECT_MODEL_SHA256:-a42c7d740fbb345ba9a26d469b22f301d73089ce3c6da993877ed2b6965a8ba1}
+    volumes:
+      - detect-model-cache:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u; u.urlopen('http://localhost:8000/health', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
 volumes:
   mysql-data:
   uploads-data:
   model-cache:
+  detect-model-cache:

@@ -38,12 +38,14 @@ Signal은 사용자가 SNS에 사진을 올리기 전 위험 요소를 진단하
 | --- | --- | --- |
 | 챗봇 | `LlmChatEngine` | Groq LLM 연동 (일반 대화 답변만 LLM 생성, 위기 감지·추천 행동/기관·단계별 안내 블록·진행 단계 완료 판정은 서버 규칙, 같은 세션 최근 대화 최대 10개를 맥락으로 함께 전달). 설계와 기관 번호 근거는 [docs/chat-guidance.md](docs/chat-guidance.md) |
 | 위험도 분석 | `LlmRiskAnalyzer` | Groq 비전 LLM 연동 (이미지 품질·얼굴 노출도·역검색 위험 추정은 LLM, 메타데이터 노출은 EXIF 직접 판독) |
-| 딥페이크 탐지 | `LlmDeepfakeDetector` | Groq 비전 LLM 연동 (이미지만 지원, 영상은 미지원이라 룰 기반 폴백) |
+| 딥페이크 탐지 | `LlmDeepfakeDetector`(기본) / `HttpDeepfakeDetector` | 기본은 Groq 비전 LLM 연동(이미지만 지원). `deepfake-detection.mode=http`이면 `detect-lab` 서비스의 전용 탐지 모델(CommunityForensics ViT-S)을 호출한다. 둘 다 영상은 미지원 |
 | 이미지 보호 처리 | `NoiseImageProtector` | 서버에서 직접 픽셀 노이즈 삽입(2x2 블록 상관 노이즈, 수준별 진폭 3/6/12, PNG 저장, 실측 visualDifference). 학습 모델을 겨냥한 적대적 섭동은 아니므로 도용·합성 방지를 보장하지 않음 |
 | 얼굴 모니터링 | `StubFaceMonitor` | 미구현 (Stub) — 역이미지 검색은 LLM으로 불가능, 전문 서비스(예: PimEyes류) API 연동 필요 |
 | 신고 문서 자동 작성 | `StubReportDocumentGenerator` | 미구현 (Stub) — 실제 PDF를 생성하지 않고 가짜 URL만 반환 |
 
 **LLM으로 실제 연동된 3개(챗봇/위험도 분석/딥페이크 탐지)의 공통 원칙**: 기본 제공자는 [Groq](https://console.groq.com)(무료 티어, OpenAI 호환 API, `GROQ_API_KEY` 필요)이며, 안전·정확성이 중요한 부분(위기 감지, 추천 문구, 메타데이터 판독)은 LLM에 맡기지 않고 계속 결정론적 로직이 담당한다. `GROQ_API_KEY` 미설정, `chat.llm.enabled`/`vision.llm.enabled`가 `false`, 또는 API 호출 실패 시 자동으로 룰 기반(Stub) 응답으로 폴백하므로 키 없이도 앱은 정상 동작한다. 관련 설정은 `application.yml`의 `chat.llm.*`, `vision.llm.*` 참고.
+
+**전용 탐지 모델(선택)**: `deepfake-detection.mode=http`(환경변수 `DEEPFAKE_DETECTION_MODE`)로 바꾸면 `detect-lab`(FastAPI + onnxruntime, `docs/deepfake-detection.md` 참고)의 `POST /detect`를 호출한다. 판정은 모델 점수만으로 정하고 LLM은 관여하지 않는다. 얼굴 검출과 근거 영역은 아직 제공하지 않는다. 같은 평가 세트로 두 탐지기를 비교하는 도구는 `scripts/detect-eval/`에 있다.
 
 **딥페이크 탐지의 정확도에 대한 주의**: `LlmDeepfakeDetector`가 사용하는 비전 LLM은 전문 딥페이크 탐지 모델이 아니라 범용 비전 언어 모델(Qwen 계열)이다. 딥페이크 이진 분류에 특화 학습된 모델이 아니므로, 근거를 그럴듯하게 대면서도 틀릴 수 있다. 기존 해시 기반 가짜 응답보다는 낫지만, 연구/제품 수준의 딥페이크 탐지 정확도를 기대해서는 안 된다.
 
