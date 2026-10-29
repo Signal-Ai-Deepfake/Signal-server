@@ -23,7 +23,7 @@ public final class AgencyTexts {
                 case EN -> en;
                 case JA -> ja;
                 case ZH_CN -> zh;
-                default -> null;
+                case KO -> null;
             };
         }
     }

@@ -41,4 +41,13 @@ class LanguageContextFilterTest {
 
         assertThat(LanguageContext.current()).isEqualTo(ResponseLanguage.KO);
     }
+
+    @Test
+    void 응답은_Accept_Language에_따라_달라지므로_Vary_헤더를_붙인다() throws Exception {
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        filter.doFilter(new MockHttpServletRequest(), response, (req, res) -> { });
+
+        assertThat(response.getHeaders("Vary")).contains("Accept-Language");
+    }
 }

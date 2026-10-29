@@ -18,6 +18,8 @@ public class LanguageContextFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
+        // 응답이 Accept-Language에 따라 달라지므로, 앞단 캐시가 한 언어의 응답을 다른 언어 사용자에게 내보내지 않게 한다.
+        response.addHeader("Vary", "Accept-Language");
         LanguageContext.set(ResponseLanguage.fromAcceptLanguage(request.getHeader("Accept-Language")));
         try {
             chain.doFilter(request, response);
