@@ -24,6 +24,15 @@ RUN_SCHEMA_UPDATE="${RUN_SCHEMA_UPDATE:-false}"
 
 log() { printf '\n▶ %s\n' "$*"; }
 
+# http를 요청했지만 쓸 수 없을 때. 실패한 detect를 내려(restart: unless-stopped라 두면 크래시 루프를 돈다) 2GB 서버의
+# CPU와 메모리를 돌려주고, 앱은 llm 방식으로 배포한다. ::warning::은 GitHub Actions 실행 요약에 경고로 드러난다.
+fall_back_to_llm() {
+    log "$1 — llm 방식으로 배포합니다"
+    echo "::warning::탐지 방식 http를 요청했지만 $1. llm 방식으로 배포했습니다."
+    docker compose --profile detect rm -sf detect >/dev/null 2>&1 || true
+    export DEEPFAKE_DETECTION_MODE=llm
+}
+
 # detect 컨테이너가 healthy가 될 때까지 기다린다. 첫 배포는 모델(약 83MB)을 받느라 몇 분 걸릴 수 있다.
 detect_healthy() {
     local cid status
@@ -60,8 +69,7 @@ export APP_IMAGE
 case "${DEEPFAKE_DETECTION_MODE:-}" in
     http)
         if [ -z "${DETECT_IMAGE:-}" ]; then
-            log "DETECT_IMAGE가 없어 llm 방식으로 배포합니다"
-            export DEEPFAKE_DETECTION_MODE=llm
+            fall_back_to_llm "DETECT_IMAGE가 없습니다"
         else
             log "탐지 서비스 이미지 pull: $DETECT_IMAGE"
             export DETECT_IMAGE
@@ -70,13 +78,11 @@ case "${DEEPFAKE_DETECTION_MODE:-}" in
                 if detect_healthy 60; then
                     log "탐지 서비스 준비됨 — http 방식으로 배포"
                 else
-                    log "탐지 서비스가 준비되지 않았습니다 — llm 방식으로 배포합니다"
                     docker compose --profile detect logs --tail=40 detect || true
-                    export DEEPFAKE_DETECTION_MODE=llm
+                    fall_back_to_llm "탐지 서비스가 5분 안에 준비되지 않았습니다"
                 fi
             else
-                log "탐지 서비스를 띄우지 못했습니다 — llm 방식으로 배포합니다"
-                export DEEPFAKE_DETECTION_MODE=llm
+                fall_back_to_llm "탐지 서비스 이미지를 받거나 띄우지 못했습니다"
             fi
         fi
         ;;
@@ -84,6 +90,13 @@ case "${DEEPFAKE_DETECTION_MODE:-}" in
         # 쓰지 않는 detect가 2GB 서버의 메모리를 차지하지 않게 내린다.
         docker compose --profile detect rm -sf detect >/dev/null 2>&1 || true
         export DEEPFAKE_DETECTION_MODE=llm
+        ;;
+    "")
+        ;;
+    *)
+        # 오타 등. 아무것도 바꾸지 않고(서버 설정 유지) 알려 준다.
+        echo "::warning::DEEPFAKE_DETECTION_MODE 값 '${DEEPFAKE_DETECTION_MODE}'을 알 수 없어 탐지 방식을 바꾸지 않았습니다. http 또는 llm만 쓸 수 있습니다."
+        unset DEEPFAKE_DETECTION_MODE
         ;;
 esac
 

@@ -29,14 +29,20 @@ CD는 `.env`를 건드리지 않으며, `git reset --hard`는 gitignore된 `.env
 
 탐지 방식은 `deepfake-detection.mode`로 정한다. `llm`은 기존 비전 LLM 탐지, `http`는 별도 서비스(`detect-lab`, CommunityForensics ViT-S)의 점수로 등급을 정한다. 자세한 내용은 [docs/deepfake-detection.md](docs/deepfake-detection.md).
 
-CD는 기본으로 `http`로 배포한다.
+CD의 기본은 `llm`이다(기존 비전 LLM 탐지, detect는 띄우지 않는다). 평가(#33, #35)로 기준선을 넘는 걸 확인한 뒤 **저장소 변수로 켠다**. 모델을 켜는 결정과 배포 자동화를 분리하려는 것이다.
+
+켜는 방법: 저장소 변수 `DEEPFAKE_DETECTION_MODE`를 `http`로 만들고(Settings > Secrets and variables > Actions > Variables) Actions > CD > Run workflow로 다시 실행한다. 켠 뒤 배포는 아래와 같이 움직인다.
 
 1. 러너가 `detect-lab`도 빌드해 `ghcr.io/somaus/signal-detect:<sha>`로 push한다. 서버는 pull만 한다.
 2. 서버에서 `docker compose --profile detect up -d detect`로 띄우고 healthy가 될 때까지 최대 5분 기다린다. 첫 배포는 모델(약 83MB)을 받는다. 가중치는 볼륨(`detect-model-cache`)에 남아 다음부터는 받지 않는다.
-3. **준비되지 않으면 앱은 `llm` 방식으로 배포한다**(배포 로그에 남는다). `http` 방식에서 detect가 죽어 있으면 탐지 요청이 모두 실패하므로, 사이트가 멈추지 않게 하려는 안전장치다.
+3. **준비되지 않으면 앱은 `llm` 방식으로 배포한다.** `http` 방식에서 detect가 죽어 있으면 탐지 요청이 모두 실패하므로, 사이트가 멈추지 않게 하려는 안전장치다. 이때 실패한 detect 컨테이너는 내리고(크래시 루프로 서버 자원을 쓰지 않게), CD 실행 요약에 경고(`::warning::`)가 남는다. 워크플로는 초록색이어도 요약의 경고를 확인한다.
 4. detect 컨테이너는 `restart: unless-stopped`라 서버가 재부팅되어도 다시 올라온다. 매번 직접 띄울 필요가 없다.
 
-탐지 방식을 `llm`으로 되돌리려면 저장소 변수 `DEEPFAKE_DETECTION_MODE`를 `llm`으로 만들고(Settings > Secrets and variables > Actions > Variables) CD를 다시 실행한다(Actions > CD > Run workflow). 이때 detect 컨테이너는 내려가 메모리를 돌려준다. 변수가 없으면 `http`다.
+되돌리려면 변수를 `llm`으로 바꾸거나 지우고 CD를 다시 실행한다. 이때 detect 컨테이너는 내려가 메모리를 돌려준다. `http`와 `llm` 이외의 값은 무시되고(서버 설정 유지) 경고가 남는다.
+
+**서버에서 detect를 직접 다룰 때는** CD가 쓴 `DETECT_IMAGE`를 같이 주거나 CD를 다시 실행한다. 이미지 이름 없이 `docker compose --profile detect up -d detect`를 치면 GHCR 이미지가 아니라 로컬 빌드(`signal-detect:local`)를 찾고, 없으면 서버에서 빌드를 시도해 1 vCPU 서버가 멈출 수 있다.
+
+**켜기 전에 서버 여유를 확인한다.** 한도는 detect 컨테이너만 지키므로 mysql + app(JVM) + detect가 2GB를 넘으면 호스트 OOM killer가 mysql이나 app을 죽일 수 있다. 서버에서 `free -m`(스왑 유무 포함)과 `docker stats --no-stream`으로 현재 사용량을 보고, 여유가 적으면 서버 `.env`에 `DETECT_MEM_LIMIT`을 낮게 넣고 시작한다.
 
 서버가 1 vCPU / 2GB라 detect에는 메모리 한도(`DETECT_MEM_LIMIT`, 기본 768m)와 스레드 1, 동시 처리 1을 걸어 두었다. **실측 전의 잠정값**이다. 첫 배포 뒤 `docker stats`로 사용량을 보고 조정한다. 한도를 넘으면 detect만 재시작되고 mysql과 app은 영향을 받지 않는다.
 
