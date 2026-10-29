@@ -92,4 +92,26 @@ class AuthServiceTest {
 
         assertInvalidRefreshToken(jwtProvider.createRefreshToken(USER_ID, 0));
     }
+
+    @Test
+    void 로그아웃하면_이전에_발급한_리프레시_토큰으로_재발급할_수_없다() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+        String refreshToken = jwtProvider.createRefreshToken(USER_ID, user.getTokenVersion());
+
+        authService.logout(USER_ID);
+
+        assertThat(user.getTokenVersion()).isEqualTo(1);
+        assertInvalidRefreshToken(refreshToken);
+        // 로그아웃 이후 새로 발급한 토큰은 통한다.
+        assertThat(authService.reissue(jwtProvider.createRefreshToken(USER_ID, user.getTokenVersion()))).isNotNull();
+    }
+
+    @Test
+    void 없는_사용자의_로그아웃은_NOT_FOUND다() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authService.logout(USER_ID))
+                .isInstanceOfSatisfying(SignalException.class,
+                        e -> assertThat(e.getErrorCode()).isEqualTo(ErrorCode.NOT_FOUND));
+    }
 }
