@@ -39,6 +39,10 @@ public final class AgencyTexts {
                     "Mental Health Crisis Hotline", "精神健康危機相談電話", "心理健康危机咨询热线"));
 
     private static final Map<String, Translation> HOURS = Map.of(
+            "평일 08:00~22:00, 주말·공휴일 09:00~18:00", new Translation(
+                    "Weekdays 08:00-22:00, weekends and holidays 09:00-18:00",
+                    "平日 08:00~22:00、土日・祝日 09:00~18:00",
+                    "工作日 08:00~22:00,周末及节假日 09:00~18:00"),
             "평일 09:00~18:00 (야간·휴일 자동응답)", new Translation(
                     "Weekdays 09:00-18:00 (automated response at night and on holidays)",
                     "平日 09:00~18:00(夜間・休日は自動応答)",
