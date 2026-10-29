@@ -1,0 +1,4 @@
+path,label,variant,variant_of,generator,source,license
+real/0001.jpg,real,original,,,팀원 촬영(본인 동의),팀 내부 사용
+real/0002.jpg,real,original,,,공개 데이터셋(이름·버전 기재),데이터셋 라이선스 기재
+fake/0001.png,fake,original,,예: stable-diffusion-xl,공개 데이터셋(이름·버전 기재),데이터셋 라이선스 기재
