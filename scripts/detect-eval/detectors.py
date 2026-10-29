@@ -18,8 +18,9 @@ from urllib.error import HTTPError, URLError
 
 @dataclass
 class Result:
-    score: float | None = None      # None이면 점수를 얻지 못함(실패/분석 불가)
-    error: str | None = None
+    score: float | None = None      # None이면 점수를 얻지 못함(실패 또는 점수 없는 판정)
+    error: str | None = None        # 실패 이유. 있으면 지표에서 빼고 실패로 센다
+    outcome: str | None = None      # 점수 없이 정상 응답한 경우: "UNDETERMINED:<이유>" 또는 "PROVENANCE"
     model: str | None = None
     model_version: str | None = None
     latency_ms: float = 0.0
@@ -99,15 +100,23 @@ class ServerDetector:
                 _, data = _http_json(get, self.timeout)
                 status = data.get("status")
                 if status == "COMPLETED":
+                    latency = (time.monotonic() - started) * 1000
+                    if data.get("fallbackUsed"):
+                        # 서버가 룰 기반 폴백으로 낸 점수는 탐지기의 점수가 아니다. 지표에 넣지 않고 실패 이유(FALLBACK)로 센다.
+                        return Result(error="FALLBACK", model="signal-server", latency_ms=latency)
+                    # mode=http 서버는 점수를 내지 않는 정상 응답이 있다. 실패가 아니므로 따로 센다.
+                    #  - band=UNDETERMINED: 판단 불가(예: 해상도 부족)
+                    #  - assessmentBasis=PROVENANCE: 파일에 남은 생성 도구 흔적으로 등급을 정함(모델 점수 아님)
+                    if data.get("band") == "UNDETERMINED":
+                        return Result(outcome=f"UNDETERMINED:{data.get('undeterminedReason') or 'UNKNOWN'}",
+                                      model=data.get("modelName") or "signal-server", latency_ms=latency)
+                    if data.get("assessmentBasis") == "PROVENANCE":
+                        return Result(outcome="PROVENANCE", model=data.get("modelName") or "signal-server",
+                                      latency_ms=latency)
                     risk = data.get("riskScore")
                     if risk is None:
                         raise RuntimeError("COMPLETED인데 riskScore가 없습니다")
-                    if data.get("fallbackUsed"):
-                        # 서버가 룰 기반 폴백으로 낸 점수는 탐지기의 점수가 아니다. 지표에 넣지 않고 실패 이유(FALLBACK)로 센다.
-                        return Result(error="FALLBACK", model="signal-server",
-                                      latency_ms=(time.monotonic() - started) * 1000)
-                    return Result(score=float(risk) / 100.0, model="signal-server",
-                                  latency_ms=(time.monotonic() - started) * 1000)
+                    return Result(score=float(risk) / 100.0, model="signal-server", latency_ms=latency)
                 if status == "FAILED":
                     return Result(error=f"FAILED:{data.get('failureReason')}",
                                   latency_ms=(time.monotonic() - started) * 1000)

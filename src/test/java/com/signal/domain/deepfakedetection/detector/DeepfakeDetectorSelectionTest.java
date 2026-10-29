@@ -20,6 +20,7 @@ class DeepfakeDetectorSelectionTest {
             .withBean(VisionCompletionClient.class, () -> mock(VisionCompletionClient.class))
             .withBean(ObjectMapper.class, ObjectMapper::new)
             .withBean(RestClient.Builder.class, RestClient::builder)
+            .withBean(DetectionBandPolicy.class, () -> new DetectionBandPolicy(30, 70, 256))
             .withUserConfiguration(LlmDeepfakeDetector.class, HttpDeepfakeDetector.class);
 
     @Test

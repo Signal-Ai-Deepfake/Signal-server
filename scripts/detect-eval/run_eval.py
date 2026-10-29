@@ -35,7 +35,17 @@ from detectors import HttpDetector, ServerDetector  # noqa: E402
 def evaluate(items, results, threshold, abstain_low=None, abstain_high=None):
     """items와 같은 순서의 results로 지표를 계산해 리포트 dict를 만든다."""
     scored, failed = [], defaultdict(int)
+    undetermined, provenance = defaultdict(int), defaultdict(int)  # 점수 없이 정상 응답한 것들(실패 아님)
+    undetermined_by_label, provenance_by_label = defaultdict(int), defaultdict(int)
     for it, res in zip(items, results):
+        if res.error is None and res.outcome:
+            label = "fake" if it.label else "real"
+            if res.outcome.startswith("UNDETERMINED"):
+                undetermined[res.outcome.partition(":")[2] or "UNKNOWN"] += 1
+                undetermined_by_label[label] += 1
+            else:
+                provenance_by_label[label] += 1
+            continue
         if res.score is None:
             failed[res.error or "unknown"] += 1
             continue
@@ -82,7 +92,7 @@ def evaluate(items, results, threshold, abstain_low=None, abstain_high=None):
             robustness[variant] = {"pairs": len(deltas), "mean_abs_score_delta": sum(deltas) / len(deltas),
                                    "verdict_flip_rate": flips / len(deltas)}
 
-    latencies = [res.latency_ms for res in results if res.score is not None]  # 실패한 요청(타임아웃 등)의 시간은 뺀다
+    latencies = [res.latency_ms for res in results if res.error is None]  # 실패한 요청(타임아웃 등)의 시간은 뺀다
     models = sorted({f"{r.model}@{r.model_version}" if r.model_version else (r.model or "")
                      for r in results if r.model})
     return {
@@ -92,6 +102,12 @@ def evaluate(items, results, threshold, abstain_low=None, abstain_high=None):
         "failed": {"count": sum(failed.values()), "rate": sum(failed.values()) / len(items) if items else None,
                    "reasons": dict(failed)},
         "abstained": {"count": abstained, "low": abstain_low, "high": abstain_high},
+        # 서버가 점수 없이 낸 판정. 실패와 섞지 않는다. UNDETERMINED는 판단 불가 비율, PROVENANCE는 메타데이터 흔적으로 올린 건수.
+        # provenance의 real은 실제 사진을 흔적 때문에 높게 본 건수라 오탐으로 따로 봐야 한다.
+        "undetermined": {"count": sum(undetermined.values()),
+                         "rate": sum(undetermined.values()) / len(items) if items else None,
+                         "reasons": dict(undetermined), "by_label": dict(undetermined_by_label)},
+        "provenance": {"count": sum(provenance_by_label.values()), "by_label": dict(provenance_by_label)},
         "overall": group(originals) if originals else None,  # 원본만(변형 제외)
         "by_variant": {v: group(rows) for v, rows in sorted(by_variant.items())},
         "by_generator_fake_only": {g: {"n": len(rows), "fnr": metrics.rates(metrics.confusion(
@@ -114,6 +130,12 @@ def print_report(report, name):
           f" | 판단 보류 {report['abstained']['count']}")
     if report["failed"]["reasons"]:
         print("  실패 이유:", report["failed"]["reasons"])
+    if report["undetermined"]["count"]:
+        u = report["undetermined"]
+        print(f"  판단 불가(서버) {u['count']} ({pct(u['rate'])}) 이유 {u['reasons']} 분류 {u['by_label']}")
+    if report["provenance"]["count"]:
+        print(f"  출처 흔적으로 등급 결정(점수 없음) {report['provenance']['count']} 분류 {report['provenance']['by_label']}"
+              f"  (real이 있으면 흔적 때문에 실제 사진을 높게 본 오탐)")
     if o:
         print("  [원본만]")
         print(f"  AUC {num(o['auc'])} | 오탐률 {pct(o['fpr'])} (real {o['n_real']}장) | 미탐률 {pct(o['fnr'])} "
@@ -200,7 +222,7 @@ def main(argv=None):
     print_report(report, f"{args.detector} @ {args.base_url}")
     if args.report:
         report["items"] = [{"path": i.path, "label": "fake" if i.label else "real", "variant": i.variant,
-                            "score": r.score, "error": r.error, "latency_ms": round(r.latency_ms, 1)}
+                            "score": r.score, "error": r.error, "outcome": r.outcome, "latency_ms": round(r.latency_ms, 1)}
                            for i, r in zip(items, results)]
         Path(args.report).parent.mkdir(parents=True, exist_ok=True)
         Path(args.report).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
