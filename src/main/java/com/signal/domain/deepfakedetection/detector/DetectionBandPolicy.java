@@ -19,8 +19,8 @@ import org.springframework.stereotype.Component;
  *    일부를 AI로 만든 이미지는 모델이 낮은 점수를 줄 수 있어 "합성 가능성 낮음"이라고 말하면 안 되고,
  *    실제 사진에 생성형 채우기만 쓴 경우도 있어 HIGH로 올리지는 않는다.
  *
- * 임계값의 기본값(30, 70)은 기존 verdict 구간을 그대로 옮긴 잠정값이다. 평가 세트(#35)로 측정해서 정해야 하며,
- * 그때까지는 이 값을 근거로 정확도를 말하지 않는다.
+ * 임계값의 기본값(10, 70)은 공개 데이터 평가(docs/detect-eval-results.md)로 정한 잠정값이다. 한국 SNS 사진 같은
+ * 실제 입력으로 다시 측정해서 확정해야 하며, 그때까지는 이 값을 근거로 정확도를 말하지 않는다.
  */
 @Component
 public class DetectionBandPolicy {
@@ -32,7 +32,7 @@ public class DetectionBandPolicy {
     private final int highAbove;
     private final int minShortEdgePx;
 
-    public DetectionBandPolicy(@Value("${deepfake-detection.bands.low-below:30}") int lowBelow,
+    public DetectionBandPolicy(@Value("${deepfake-detection.bands.low-below:10}") int lowBelow,
                                @Value("${deepfake-detection.bands.high-above:70}") int highAbove,
                                @Value("${deepfake-detection.bands.min-short-edge-px:256}") int minShortEdgePx) {
         if (lowBelow < 0 || highAbove > 100 || lowBelow > highAbove) {
