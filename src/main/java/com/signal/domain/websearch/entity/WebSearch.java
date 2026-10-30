@@ -37,9 +37,18 @@ public class WebSearch {
     @Column(nullable = false, unique = true)
     private Long detectionId;
 
+    /** 한도를 세기 위한 소유자 키("u:사용자id" 또는 "a:익명id"). */
+    @Column(length = 100)
+    private String ownerKey;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private WebSearchStatus status;
+
+    /** status가 UNAVAILABLE일 때의 이유. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private UnavailableReason unavailableReason;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "web_search_matches", joinColumns = @JoinColumn(name = "web_search_id"))
@@ -49,18 +58,21 @@ public class WebSearch {
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    private WebSearch(Long detectionId, WebSearchStatus status) {
+    private WebSearch(Long detectionId, String ownerKey, WebSearchStatus status) {
         this.detectionId = detectionId;
+        this.ownerKey = ownerKey;
         this.status = status;
         this.createdAt = LocalDateTime.now();
     }
 
-    public static WebSearch processing(Long detectionId) {
-        return new WebSearch(detectionId, WebSearchStatus.PROCESSING);
+    public static WebSearch processing(Long detectionId, String ownerKey) {
+        return new WebSearch(detectionId, ownerKey, WebSearchStatus.PROCESSING);
     }
 
-    public static WebSearch unavailable(Long detectionId) {
-        return new WebSearch(detectionId, WebSearchStatus.UNAVAILABLE);
+    public static WebSearch unavailable(Long detectionId, String ownerKey, UnavailableReason reason) {
+        WebSearch webSearch = new WebSearch(detectionId, ownerKey, WebSearchStatus.UNAVAILABLE);
+        webSearch.unavailableReason = reason;
+        return webSearch;
     }
 
     public void complete(List<WebMatch> matches) {

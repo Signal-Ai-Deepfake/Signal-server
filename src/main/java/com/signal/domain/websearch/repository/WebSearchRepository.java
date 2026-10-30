@@ -10,5 +10,7 @@ public interface WebSearchRepository extends JpaRepository<WebSearch, Long> {
 
     Optional<WebSearch> findByDetectionId(Long detectionId);
 
+    long countByOwnerKeyAndCreatedAtGreaterThanEqualAndStatusNot(String ownerKey, LocalDateTime since, WebSearchStatus status);
+
     long countByCreatedAtGreaterThanEqualAndStatusNot(LocalDateTime since, WebSearchStatus status);
 }

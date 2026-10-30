@@ -2,7 +2,9 @@
 CREATE TABLE web_searches (
     id BIGINT NOT NULL AUTO_INCREMENT,
     detection_id BIGINT NOT NULL,
+    owner_key VARCHAR(100) NULL,
     status VARCHAR(20) NOT NULL,
+    unavailable_reason VARCHAR(20) NULL,
     created_at DATETIME(6) NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT uk_web_searches_detection UNIQUE (detection_id)

@@ -68,6 +68,8 @@ public class SerpApiReverseImageSearcher implements ReverseImageSearcher {
             JsonNode response = restClient.get()
                     .uri(uri -> uri.path("/search.json")
                             .queryParam("engine", "google_lens")
+                            // 도용 탐지에는 같은 이미지(exact_matches)가 맞다. 기본 호출은 비슷한 이미지(visual_matches)만 준다.
+                            .queryParam("type", "exact_matches")
                             .queryParam("url", imageUrl)
                             .queryParam("api_key", apiKey)
                             .build())

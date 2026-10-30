@@ -36,7 +36,8 @@ public class DeepfakeDetectionController {
         DeepfakeDetection detection = deepfakeDetectionService.createDetection(userId, anonymousId, file);
         // 합성 분석과 별개로 웹 검색을 시작한다(설정이 꺼져 있으면 아무 일도 하지 않는다).
         webSearchService.start(detection.getId(), detection.getFileUrl(),
-                file.getContentType() != null && file.getContentType().startsWith("video/"));
+                file.getContentType() != null && file.getContentType().startsWith("video/"),
+                userId != null ? "u:" + userId : "a:" + anonymousId);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(DeepfakeDetectionCreateResponse.from(detection));
     }
 
