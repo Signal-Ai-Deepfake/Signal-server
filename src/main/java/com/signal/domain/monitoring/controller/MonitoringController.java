@@ -51,7 +51,7 @@ public class MonitoringController {
     }
 
     @Operation(summary = "탐지 결과 조회",
-            description = "MONITORING_MODE=search 이면 기준 이미지와 같은 이미지가 실린 웹 페이지(이미지 일치 기준, 얼굴 동일인 판정 아님)이고, "
+            description = "MONITORING_MODE=search 이면 기준 이미지와 같은 이미지가 실린 웹 페이지(이미지 일치 기준, 얼굴 동일인 판정 아님)이며 matchType(FULL 동일 이미지 / PARTIAL 일부 일치 / PAGE 같은 페이지에 노출)으로 구분합니다. 점수가 아니므로 퍼센트로 표시하지 마세요. thumbnailUrl 은 내리지 않습니다. "
                     + "stub 이면 simulated=true 시연용 예시(sourceUrl 은 null, thumbnailUrl 은 SAMPLE 이미지)입니다.")
     @GetMapping("/{monitoringId}/detections")
     public ResponseEntity<DetectionPageResponse> getDetections(

@@ -6,5 +6,7 @@ ALTER TABLE monitorings
 
 ALTER TABLE detections
     ADD COLUMN title VARCHAR(500) NULL,
+    ADD COLUMN match_type VARCHAR(10) NULL,
+    MODIFY COLUMN similarity DOUBLE NULL,
     MODIFY COLUMN source_url VARCHAR(2048) NOT NULL,
     MODIFY COLUMN thumbnail_url VARCHAR(2048) NULL;

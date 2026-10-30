@@ -2,6 +2,7 @@ package com.signal.domain.monitoring.dto.response;
 
 import com.signal.domain.monitoring.entity.Detection;
 import com.signal.domain.monitoring.monitor.StubFaceMonitor;
+import com.signal.domain.monitoring.entity.MatchType;
 import java.net.URI;
 import java.time.LocalDateTime;
 
@@ -15,7 +16,8 @@ public record DetectionResponse(
         String thumbnailUrl,
         String title,
         String sourceDomain,
-        double similarity,
+        Double similarity,
+        MatchType matchType,
         LocalDateTime detectedAt,
         boolean simulated
 ) {
@@ -33,10 +35,12 @@ public record DetectionResponse(
         return new DetectionResponse(
                 detection.getId(),
                 simulated ? null : detection.getSourceUrl(),
-                simulated ? StubFaceMonitor.PLACEHOLDER_THUMBNAIL : detection.getThumbnailUrl(),
+                // 실제 결과의 이미지는 제3자 호스트라 프론트가 불러오면 사용자 IP가 노출된다. 프록시를 두기 전까지 내리지 않는다.
+                simulated ? StubFaceMonitor.PLACEHOLDER_THUMBNAIL : null,
                 detection.getTitle(),
                 simulated ? null : domainOf(detection.getSourceUrl()),
                 detection.getSimilarity(),
+                detection.getMatchType(),
                 detection.getDetectedAt(),
                 simulated);
     }

@@ -61,6 +61,13 @@ public class Monitoring {
         this.consecutiveFailures = 0;
     }
 
+    /** 다시 시도해도 소용없는 실패는 연속 실패를 기다리지 않고 바로 멈춘다. */
+    public void pauseAfterFatalFailure(LocalDateTime now) {
+        this.lastSearchedAt = now;
+        this.consecutiveFailures++;
+        this.status = MonitoringStatus.PAUSED;
+    }
+
     /** 실패하면 다음 주기에 다시 시도하고, 연속 실패가 maxFailures에 이르면 멈춘다(PAUSED). */
     public void recordSearchFailure(LocalDateTime now, Duration interval, int maxFailures) {
         this.lastSearchedAt = now;
