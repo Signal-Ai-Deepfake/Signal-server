@@ -9,8 +9,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface MonitoringRepository extends JpaRepository<Monitoring, Long> {
 
-    List<Monitoring> findByStatusAndNextSearchAtLessThanEqualOrderByNextSearchAtAsc(
-            MonitoringStatus status, LocalDateTime now, Pageable pageable);
+    List<Monitoring> findByStatusAndNextSearchAtLessThanEqualAndCreatedAtBeforeOrderByNextSearchAtAsc(
+            MonitoringStatus status, LocalDateTime now, LocalDateTime createdBefore, Pageable pageable);
 
     long countByLastSearchedAtGreaterThanEqual(LocalDateTime since);
 

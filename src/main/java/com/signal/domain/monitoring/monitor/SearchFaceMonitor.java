@@ -10,6 +10,7 @@ import com.signal.global.file.FileStorage;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,9 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "monitoring.mode", havingValue = "search")
 public class SearchFaceMonitor implements FaceMonitor {
+
+    /** 일일 상한은 한국 시간 자정에 초기화한다(컨테이너가 UTC여도 같다). */
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final MonitoringRepository monitoringRepository;
     private final DetectionRepository detectionRepository;
@@ -65,7 +69,7 @@ public class SearchFaceMonitor implements FaceMonitor {
         if (monitoring == null || monitoring.getStatus() != MonitoringStatus.ACTIVE) {
             return;
         }
-        if (monitoringRepository.countByLastSearchedAtGreaterThanEqual(LocalDate.now().atStartOfDay()) >= dailyLimit) {
+        if (monitoringRepository.countByLastSearchedAtGreaterThanEqual(startOfTodayKst()) >= dailyLimit) {
             log.warn("오늘 검색 상한({}건)에 도달해 건너뜁니다. monitoringId={}", dailyLimit, monitoringId);
             return;
         }
@@ -85,12 +89,15 @@ public class SearchFaceMonitor implements FaceMonitor {
                         .sourceUrl(hit.pageUrl())
                         .thumbnailUrl(hit.imageUrl())
                         .title(truncate(hit.title(), 500))
-                        .similarity(hit.similarity())
+                        .matchType(hit.matchType())
                         .build());
                 added++;
             }
             monitoring.recordSearchSuccess(now, interval);
             log.info("모니터링 검색 완료: monitoringId={}, 검색결과={}, 신규={}", monitoringId, hits.size(), added);
+        } catch (NonRetryableSearchException e) {
+            monitoring.pauseAfterFatalFailure(now);
+            log.error("모니터링 검색을 다시 시도할 수 없어 멈춥니다: monitoringId={}", monitoringId, e);
         } catch (Exception e) {
             monitoring.recordSearchFailure(now, interval, maxFailures);
             log.error("모니터링 검색 실패: monitoringId={}, 연속 실패={}, 상태={}",
@@ -101,6 +108,11 @@ public class SearchFaceMonitor implements FaceMonitor {
         if (monitoringRepository.existsById(monitoringId)) {
             monitoringRepository.save(monitoring);
         }
+    }
+
+    /** 저장된 시각은 서버 기본 시간대이므로, 한국 시간 자정을 같은 시간대로 옮겨 비교한다. */
+    private static LocalDateTime startOfTodayKst() {
+        return LocalDate.now(KST).atStartOfDay(KST).withZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
     }
 
     private static String truncate(String value, int max) {

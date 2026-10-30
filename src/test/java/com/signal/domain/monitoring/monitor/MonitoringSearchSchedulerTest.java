@@ -31,8 +31,8 @@ class MonitoringSearchSchedulerTest {
         Monitoring b = Monitoring.builder().userId(2L).referenceImageUrl("b").build();
         ReflectionTestUtils.setField(a, "id", 10L);
         ReflectionTestUtils.setField(b, "id", 11L);
-        when(monitoringRepository.findByStatusAndNextSearchAtLessThanEqualOrderByNextSearchAtAsc(
-                eq(MonitoringStatus.ACTIVE), any(), any(Pageable.class))).thenReturn(List.of(a, b));
+        when(monitoringRepository.findByStatusAndNextSearchAtLessThanEqualAndCreatedAtBeforeOrderByNextSearchAtAsc(
+                eq(MonitoringStatus.ACTIVE), any(), any(), any(Pageable.class))).thenReturn(List.of(a, b));
 
         new MonitoringSearchScheduler(monitoringRepository, searchFaceMonitor, 30).searchDueMonitorings();
 
@@ -42,8 +42,8 @@ class MonitoringSearchSchedulerTest {
 
     @Test
     void 대상이_없으면_검색하지_않는다() {
-        when(monitoringRepository.findByStatusAndNextSearchAtLessThanEqualOrderByNextSearchAtAsc(
-                eq(MonitoringStatus.ACTIVE), any(), any(Pageable.class))).thenReturn(List.of());
+        when(monitoringRepository.findByStatusAndNextSearchAtLessThanEqualAndCreatedAtBeforeOrderByNextSearchAtAsc(
+                eq(MonitoringStatus.ACTIVE), any(), any(), any(Pageable.class))).thenReturn(List.of());
 
         new MonitoringSearchScheduler(monitoringRepository, searchFaceMonitor, 30).searchDueMonitorings();
 

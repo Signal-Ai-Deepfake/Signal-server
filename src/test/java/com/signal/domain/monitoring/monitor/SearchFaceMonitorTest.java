@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.signal.domain.monitoring.entity.Detection;
+import com.signal.domain.monitoring.entity.MatchType;
 import com.signal.domain.monitoring.entity.Monitoring;
 import com.signal.domain.monitoring.entity.MonitoringStatus;
 import com.signal.domain.monitoring.monitor.ReverseImageSearcher.SearchHit;
@@ -54,8 +55,8 @@ class SearchFaceMonitorTest {
         givenMonitoringExists();
         when(fileStorage.load("/uploads/monitorings/a.png")).thenReturn(new byte[]{1});
         when(searcher.search(any())).thenReturn(List.of(
-                new SearchHit("https://a.com/1", "https://a.com/1.jpg", "A", 1.0),
-                new SearchHit("https://old.com", null, "old", 0.6)));
+                new SearchHit("https://a.com/1", "https://a.com/1.jpg", "A", MatchType.FULL),
+                new SearchHit("https://old.com", null, "old", MatchType.PAGE)));
         when(detectionRepository.existsByMonitoringIdAndSourceUrl(1L, "https://a.com/1")).thenReturn(false);
         when(detectionRepository.existsByMonitoringIdAndSourceUrl(1L, "https://old.com")).thenReturn(true);
         when(monitoringRepository.existsById(1L)).thenReturn(true);
@@ -66,6 +67,7 @@ class SearchFaceMonitorTest {
         verify(detectionRepository).save(saved.capture());
         assertThat(saved.getValue().getSourceUrl()).isEqualTo("https://a.com/1");
         assertThat(saved.getValue().getTitle()).isEqualTo("A");
+        assertThat(saved.getValue().getMatchType()).isEqualTo(MatchType.FULL);
         assertThat(monitoring.getLastSearchedAt()).isNotNull();
         assertThat(monitoring.getNextSearchAt()).isAfter(LocalDateTime.now().plusHours(23));
         assertThat(monitoring.getConsecutiveFailures()).isZero();
@@ -84,6 +86,18 @@ class SearchFaceMonitorTest {
         assertThat(monitoring.getConsecutiveFailures()).isEqualTo(1);
         assertThat(monitoring.getStatus()).isEqualTo(MonitoringStatus.ACTIVE);
         verify(detectionRepository, never()).save(any());
+    }
+
+    @Test
+    void 다시_시도해도_소용없는_실패는_바로_PAUSED가_된다() {
+        givenMonitoringExists();
+        when(fileStorage.load(any())).thenReturn(new byte[]{1});
+        when(searcher.search(any())).thenThrow(new NonRetryableSearchException("bad request"));
+        when(monitoringRepository.existsById(1L)).thenReturn(true);
+
+        monitor.search(1L);
+
+        assertThat(monitoring.getStatus()).isEqualTo(MonitoringStatus.PAUSED);
     }
 
     @Test
