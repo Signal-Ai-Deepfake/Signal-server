@@ -79,6 +79,15 @@ monitoring:
     google-vision:
       api-key: ${GOOGLE_VISION_API_KEY:}                     # mode=search일 때 필수
 
+web-search:   # 탐지한 사진이 웹 어딘가에 올라와 있는지 역이미지 검색(탐지 결과의 "얼굴 도용 여부" 카드)
+  provider: ${WEB_SEARCH_PROVIDER:none}   # none: 끔(기본, webSearch=null) / serpapi: SerpApi Google Lens. 켜면 얼굴 사진이 외부로 전송된다
+  daily-limit: ${WEB_SEARCH_DAILY_LIMIT:3}   # 하루 전체 검색 상한. SerpApi 무료 한도(월 100건)를 넘지 않도록
+  public-base-url: ${WEB_SEARCH_PUBLIC_BASE_URL:}   # SerpApi가 임시 이미지를 가져갈 이 서버의 외부 주소(https://...)
+  temp-image-ttl-seconds: 300
+  timeout-seconds: ${WEB_SEARCH_TIMEOUT_SECONDS:60}
+  serpapi:
+    api-key: ${SERPAPI_API_KEY:}
+
 deepfake-detection:
   mode: ${DEEPFAKE_DETECTION_MODE:llm}   # llm: 비전 LLM(LlmDeepfakeDetector, 기본) / http: detect-lab 서비스의 전용 탐지 모델 호출(HttpDeepfakeDetector)
   processing-delay-ms: 3000   # 딥페이크 탐지 시뮬레이션 지연 (스텁, 추후 AI 서버 연동 시 제거)
