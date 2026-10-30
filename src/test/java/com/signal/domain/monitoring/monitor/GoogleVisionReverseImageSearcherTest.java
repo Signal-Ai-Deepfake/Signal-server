@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.signal.domain.monitoring.entity.MatchType;
 import com.signal.domain.monitoring.monitor.ReverseImageSearcher.SearchHit;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -23,7 +24,7 @@ class GoogleVisionReverseImageSearcherTest {
 
         List<SearchHit> hits = GoogleVisionReverseImageSearcher.parse(mapper.readTree(json));
 
-        assertThat(hits).extracting(SearchHit::similarity).containsExactly(1.0, 0.8, 0.6);
+        assertThat(hits).extracting(SearchHit::matchType).containsExactly(MatchType.FULL, MatchType.PARTIAL, MatchType.PAGE);
         assertThat(hits.get(0).imageUrl()).isEqualTo("https://a.com/1.jpg");
         assertThat(hits.get(0).title()).isEqualTo("A");
         assertThat(hits.get(2).imageUrl()).isNull();
@@ -39,6 +40,20 @@ class GoogleVisionReverseImageSearcherTest {
         String json = "{\"responses\":[{\"webDetection\":{\"pagesWithMatchingImages\":[{\"pageTitle\":\"x\"}]}}]}";
 
         assertThat(GoogleVisionReverseImageSearcher.parse(mapper.readTree(json))).isEmpty();
+    }
+
+    @Test
+    void http_https가_아닌_스킴과_너무_긴_URL은_버린다() throws Exception {
+        String longUrl = "https://a.com/" + "x".repeat(2048);
+        String json = "{\"responses\":[{\"webDetection\":{\"pagesWithMatchingImages\":["
+                + "{\"url\":\"javascript:alert(1)\"},{\"url\":\"" + longUrl + "\"},"
+                + "{\"url\":\"https://ok.com/p\",\"fullMatchingImages\":[{\"url\":\"data:image/png;base64,AAA\"}]}]}}]}";
+
+        List<SearchHit> hits = GoogleVisionReverseImageSearcher.parse(mapper.readTree(json));
+
+        assertThat(hits).hasSize(1);
+        assertThat(hits.get(0).pageUrl()).isEqualTo("https://ok.com/p");
+        assertThat(hits.get(0).imageUrl()).isNull();
     }
 
     @Test

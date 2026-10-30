@@ -1,6 +1,8 @@
 package com.signal.domain.monitoring.monitor;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.signal.domain.monitoring.entity.MatchType;
+import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -11,6 +13,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 
 /**
@@ -23,6 +26,7 @@ import org.springframework.web.client.RestClient;
 public class GoogleVisionReverseImageSearcher implements ReverseImageSearcher {
 
     static final int MAX_RESULTS = 20;
+    static final int MAX_URL_LENGTH = 2048;   // detections.source_url / thumbnail_url 컬럼 길이
 
     private final RestClient restClient;
 
@@ -45,15 +49,24 @@ public class GoogleVisionReverseImageSearcher implements ReverseImageSearcher {
     @Override
     public List<SearchHit> search(byte[] image) {
         Map<String, Object> body = Map.of("requests", List.of(Map.of(
-                "image", Map.of("content", Base64.getEncoder().encodeToString(image)),
+                "image", Map.of("content", Base64.getEncoder().encodeToString(SearchImagePreprocessor.shrink(image))),
                 "features", List.of(Map.of("type", "WEB_DETECTION", "maxResults", MAX_RESULTS)))));
 
-        JsonNode response = restClient.post()
-                .uri("/v1/images:annotate")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .body(JsonNode.class);
+        JsonNode response;
+        try {
+            response = restClient.post()
+                    .uri("/v1/images:annotate")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(JsonNode.class);
+        } catch (HttpClientErrorException e) {
+            // 400/403 등은 다시 시도해도 같은 결과다. 429(쿼터)와 408은 일시적이라 일반 실패로 둔다.
+            if (e.getStatusCode().value() != 429 && e.getStatusCode().value() != 408) {
+                throw new NonRetryableSearchException("Vision 요청이 거절됐습니다: " + e.getStatusCode(), e);
+            }
+            throw e;
+        }
 
         return parse(response);
     }
@@ -69,16 +82,29 @@ public class GoogleVisionReverseImageSearcher implements ReverseImageSearcher {
 
         List<SearchHit> hits = new ArrayList<>();
         for (JsonNode page : first.path("webDetection").path("pagesWithMatchingImages")) {
-            String pageUrl = page.path("url").asText(null);
-            if (pageUrl == null || pageUrl.isBlank()) {
+            String pageUrl = safeUrl(page.path("url").asText(null));
+            if (pageUrl == null) {
                 continue;
             }
             JsonNode full = page.path("fullMatchingImages").path(0);
             JsonNode partial = page.path("partialMatchingImages").path(0);
-            String imageUrl = full.has("url") ? full.path("url").asText() : partial.path("url").asText(null);
-            double similarity = full.has("url") ? 1.0 : partial.has("url") ? 0.8 : 0.6;
-            hits.add(new SearchHit(pageUrl, imageUrl, page.path("pageTitle").asText(null), similarity));
+            String imageUrl = safeUrl(full.has("url") ? full.path("url").asText() : partial.path("url").asText(null));
+            MatchType matchType = full.has("url") ? MatchType.FULL : partial.has("url") ? MatchType.PARTIAL : MatchType.PAGE;
+            hits.add(new SearchHit(pageUrl, imageUrl, page.path("pageTitle").asText(null), matchType));
         }
         return hits;
+    }
+
+    /** 외부가 정한 값이므로 http/https만 받고, 컬럼 길이를 넘는 URL은 버린다. 쓸 수 없으면 null. */
+    static String safeUrl(String url) {
+        if (url == null || url.isBlank() || url.length() > MAX_URL_LENGTH) {
+            return null;
+        }
+        try {
+            String scheme = URI.create(url).getScheme();
+            return "http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme) ? url : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }
