@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,7 @@ import org.springframework.web.client.RestClient;
  * 이미지 단위 일치를 찾으므로, 같은 사진이 아닌 "같은 얼굴의 다른 사진"은 찾지 못한다.
  */
 @Component
+@Primary   // 검색 서비스 구현체가 여러 개일 때 모니터링은 이쪽을 쓴다(웹 검색은 @Qualifier("serpApi"))
 @ConditionalOnProperty(name = "monitoring.mode", havingValue = "search")
 public class GoogleVisionReverseImageSearcher implements ReverseImageSearcher {
 
@@ -96,7 +98,7 @@ public class GoogleVisionReverseImageSearcher implements ReverseImageSearcher {
     }
 
     /** 외부가 정한 값이므로 http/https만 받고, 컬럼 길이를 넘는 URL은 버린다. 쓸 수 없으면 null. */
-    static String safeUrl(String url) {
+    public static String safeUrl(String url) {
         if (url == null || url.isBlank() || url.length() > MAX_URL_LENGTH) {
             return null;
         }

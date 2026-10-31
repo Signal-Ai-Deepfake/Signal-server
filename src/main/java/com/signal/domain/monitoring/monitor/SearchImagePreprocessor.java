@@ -13,14 +13,14 @@ import javax.imageio.ImageIO;
  * 검색 API에 보내기 전에 이미지를 줄여 JPEG로 다시 인코딩한다. 업로드는 10MB까지 받지만 base64는 1.33배가 되어
  * Vision의 요청 한도(10MB)를 넘을 수 있고, 역검색에는 긴 변 1600px이면 충분하다.
  */
-final class SearchImagePreprocessor {
+public final class SearchImagePreprocessor {
 
     static final int MAX_EDGE_PX = 1600;
 
     private SearchImagePreprocessor() {
     }
 
-    static byte[] shrink(byte[] image) {
+    public static byte[] shrink(byte[] image) {
         try {
             BufferedImage source = ImageIO.read(new ByteArrayInputStream(image));
             if (source == null) {
