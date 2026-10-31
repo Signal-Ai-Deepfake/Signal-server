@@ -16,6 +16,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 /**
  * SerpApi의 Google Lens로 같은 이미지가 실린 페이지를 찾는다(무료 한도 월 100~250건, 카드 불필요).
@@ -64,8 +66,20 @@ public class SerpApiReverseImageSearcher implements ReverseImageSearcher {
         String token = tempImageStore.put(jpeg, "image/jpeg");
         try {
             String imageUrl = publicBaseUrl + TEMP_IMAGE_PATH + token;
-            // SerpApi는 키를 쿼리 파라미터로만 받는다. 예외 메시지에 URL이 섞이지 않게 상위에서 메시지만 기록한다.
-            JsonNode response = restClient.get()
+            JsonNode response = fetch(imageUrl);
+            return parse(response);
+        } finally {
+            tempImageStore.remove(token);
+        }
+    }
+
+    /**
+     * SerpApi는 키를 쿼리 파라미터로만 받는다. RestClient의 I/O 오류 메시지에는 요청 URL 전체(api_key, 임시 이미지 주소)가
+     * 들어가므로 원인 예외를 그대로 던지지 않고, 키가 없는 메시지로 바꿔 던진다.
+     */
+    private JsonNode fetch(String imageUrl) {
+        try {
+            return restClient.get()
                     .uri(uri -> uri.path("/search.json")
                             .queryParam("engine", "google_lens")
                             // 도용 탐지에는 같은 이미지(exact_matches)가 맞다. 기본 호출은 비슷한 이미지(visual_matches)만 준다.
@@ -75,9 +89,10 @@ public class SerpApiReverseImageSearcher implements ReverseImageSearcher {
                             .build())
                     .retrieve()
                     .body(JsonNode.class);
-            return parse(response);
-        } finally {
-            tempImageStore.remove(token);
+        } catch (RestClientResponseException e) {
+            throw new IllegalStateException("SerpApi 호출 실패: HTTP " + e.getStatusCode().value());
+        } catch (RestClientException e) {
+            throw new IllegalStateException("SerpApi 호출 실패: " + e.getClass().getSimpleName());
         }
     }
 
@@ -87,7 +102,7 @@ public class SerpApiReverseImageSearcher implements ReverseImageSearcher {
         }
         if (response.hasNonNull("error")) {
             String error = response.path("error").asText();
-            // 결과가 없는 것은 실패가 아니다.
+            // 결과가 없는 것은 실패가 아니다. SerpApi는 이를 error 문구로만 알려 주므로 이 문구에 의존한다(바뀌면 FAILED로 집계된다).
             if (error.contains("hasn't returned any results")) {
                 return List.of();
             }

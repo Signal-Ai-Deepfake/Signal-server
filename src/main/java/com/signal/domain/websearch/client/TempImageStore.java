@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * 외부 검색 서비스는 이미지를 base64가 아니라 공개 URL로만 받는다. 검색하는 동안만 추측할 수 없는 토큰 주소로
- * 이미지를 열어 두고(기본 5분), 검색이 끝나면 바로 닫는다. 메모리에만 두며 서버가 여러 대이면 쓸 수 없다.
+ * 이미지를 열어 두고(기본 90초), 검색이 끝나면 바로 닫는다. 메모리에만 두며 서버가 여러 대이면 쓸 수 없다.
  */
 @Component
 public class TempImageStore {
@@ -23,7 +23,7 @@ public class TempImageStore {
     private final Map<String, Stored> images = new ConcurrentHashMap<>();
     private final long ttlMs;
 
-    public TempImageStore(@Value("${web-search.temp-image-ttl-seconds:300}") long ttlSeconds) {
+    public TempImageStore(@Value("${web-search.temp-image-ttl-seconds:90}") long ttlSeconds) {
         this.ttlMs = Duration.ofSeconds(ttlSeconds).toMillis();
     }
 

@@ -140,4 +140,44 @@ class WebSearchServiceTest {
         assertThat(ok.getMatches()).hasSize(1);
         assertThat(bad.getStatus()).isEqualTo(WebSearchStatus.FAILED);
     }
+
+    @Test
+    void 같은_사진은_두_번_검색하지_않는다() {
+        when(repository.findByDetectionId(1L)).thenReturn(Optional.of(WebSearch.processing(1L, "u:1")));
+
+        service(searcher).start(1L, "/uploads/a.png", false, "u:1");
+
+        verify(repository, never()).save(any());
+        verify(runner, never()).search(any(), any(), any());
+    }
+
+    @Test
+    void 오래된_PROCESSING은_조회할_때_FAILED로_정리한다() throws Exception {
+        WebSearch stale = WebSearch.processing(1L, "u:1");
+        java.lang.reflect.Field createdAt = WebSearch.class.getDeclaredField("createdAt");
+        createdAt.setAccessible(true);
+        createdAt.set(stale, java.time.LocalDateTime.now().minusMinutes(10));
+        when(repository.findByDetectionId(1L)).thenReturn(Optional.of(stale));
+
+        WebSearch found = service(searcher).find(1L);
+
+        assertThat(found.getStatus()).isEqualTo(WebSearchStatus.FAILED);
+        verify(repository).save(stale);
+    }
+
+    @Test
+    void 방금_시작한_PROCESSING은_그대로_둔다() {
+        WebSearch fresh = WebSearch.processing(1L, "u:1");
+        when(repository.findByDetectionId(1L)).thenReturn(Optional.of(fresh));
+
+        assertThat(service(searcher).find(1L).getStatus()).isEqualTo(WebSearchStatus.PROCESSING);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void 계정을_지우면_그_사용자의_검색_기록을_지운다() {
+        service(searcher).deleteByOwner(7L);
+
+        verify(repository).deleteByOwnerKey("u:7");
+    }
 }

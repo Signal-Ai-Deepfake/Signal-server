@@ -38,7 +38,8 @@ public class WebSearchRunner {
             log.info("웹 검색 완료: detectionId={}, 결과={}건", detectionId, hits.size());
         } catch (Exception e) {
             webSearch.fail();
-            log.error("웹 검색 실패: detectionId={}", detectionId, e);
+            // 스택 대신 메시지만 남긴다(검색기가 키를 뺀 메시지로 바꿔 던진다).
+            log.error("웹 검색 실패: detectionId={}, 원인={}", detectionId, e.toString());
         }
         webSearchRepository.save(webSearch);
     }
